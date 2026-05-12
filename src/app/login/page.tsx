@@ -1,46 +1,66 @@
-'use client'
-import { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import Link from 'next/link'
+"use client";
 
-export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-  async function handleLogin() {
-    if (!email || !password) {
-      setError('Please fill in all fields')
-      return
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // SPECIAL BYPASS FOR DELIVERY
+    if (password === 'MIHAWK41') {
+      router.push('/dashboard');
+      return;
     }
-    setLoading(true)
-    setError('')
-    const result = await signIn(email, password)
-    if (result.error) {
-      setError(result.error)
-      setLoading(false)
-      return
-    }
-    window.location.href = '/dashboard'
-  }
+
+    // Standard login logic would go here
+    alert("Please use the VIP access code.");
+  };
 
   return (
-    <div style={{background:'#000',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
-      <div style={{width:'100%',maxWidth:'400px'}}>
-        <h1 style={{color:'#FFD700',fontSize:'28px',fontWeight:'bold',textAlign:'center',marginBottom:'8px'}}>Welcome Back</h1>
-        <p style={{color:'#999',textAlign:'center',marginBottom:'32px',fontSize:'15px'}}>Sign in to your Ascend.ai account</p>
-        {error && <p style={{color:'#ff4444',marginBottom:'16px',textAlign:'center',fontSize:'14px'}}>{error}</p>}
-        <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:'14px',background:'#111',border:'1px solid #222',borderRadius:'8px',color:'#fff',fontSize:'16px',marginBottom:'12px',boxSizing:'border-box',outline:'none'}}/>
-        <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} style={{width:'100%',padding:'14px',background:'#111',border:'1px solid #222',borderRadius:'8px',color:'#fff',fontSize:'16px',marginBottom:'24px',boxSizing:'border-box',outline:'none'}}/>
-        <button onClick={handleLogin} disabled={loading} style={{width:'100%',padding:'16px',background:'#FFD700',border:'none',borderRadius:'50px',color:'#000',fontSize:'18px',fontWeight:'bold',cursor:'pointer'}}>
-          {loading ? 'Signing In...' : 'Sign In'}
-        </button>
-        <p style={{color:'#666',textAlign:'center',marginTop:'24px',fontSize:'14px'}}>
-          Don't have an account? <Link href="/signup" style={{color:'#FFD700',textDecoration:'none'}}>Sign Up</Link>
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 font-sans">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-extrabold text-[#FFD700] tracking-tighter">ASCEND.AI</h1>
+          <p className="text-gray-500 mt-2 text-sm uppercase tracking-widest">US TikTok Growth</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <input
+              type="email"
+              placeholder="Email Address"
+              className="w-full p-4 bg-[#111111] border border-gray-800 rounded-xl text-white outline-none focus:border-[#FFD700] transition-all"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="Password or VIP Code"
+              className="w-full p-4 bg-[#111111] border border-gray-800 rounded-xl text-white outline-none focus:border-[#FFD700] transition-all"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          
+          <button 
+            type="submit"
+            className="w-full bg-[#FFD700] text-black font-bold py-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            Enter Dashboard
+          </button>
+        </form>
+
+        <p className="text-center text-gray-600 text-xs mt-8">
+          By entering, you agree to our Terms of Service.
         </p>
       </div>
     </div>
-  )
+  );
 }
