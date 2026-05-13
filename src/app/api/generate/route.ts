@@ -7,12 +7,12 @@ export async function GET() {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json([{ Title: "Error", Script: "API Key missing in Vercel." }]);
+      return NextResponse.json([{ Title: "Error", Script: "API Key missing in Vercel settings." }]);
     }
 
     const randomTopic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
 
-    // FIXED: Added backticks around the prompt and ${} for the variable
+    // Using backticks () to wrap the entire prompt string
     const systemPrompt = You are a viral TikTok content strategist who knows exactly what works for a US audience. Generate exactly 4 unique TikTok content ideas about: "${randomTopic}". Return ONLY a JSON array with 'Title', 'Script', 'Caption', and 'Hashtags' keys. No conversational text.;
 
     const response = await fetch(
@@ -28,7 +28,10 @@ export async function GET() {
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = text.replace(/`json/g, '').replace(/```/g, '').trim();
+    
+    // Clean up the JSON response from Gemini
+    const cleanJson = text.replace(/``json/g, '').replace(/
+`/g, '').trim();
     
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error) {
