@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 
-// A list of different angles so every creator gets unique content
 const TOPICS = [
   "faceless AI automation accounts",
   "passive income with AI tools",
@@ -11,7 +10,6 @@ const TOPICS = [
 
 export async function GET() {
   try {
-    // FIXED: No NEXT_PUBLIC_ prefix — this key stays on the server only
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -20,7 +18,6 @@ export async function GET() {
       );
     }
 
-    // Pick a random topic so every user session feels different
     const randomTopic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
 
     const systemPrompt = You are a viral TikTok content strategist who knows exactly what hits on the US For You Page (FYP).
@@ -44,7 +41,6 @@ Return ONLY a valid JSON array. No extra text, no markdown, no backticks. Exampl
   }
 ];
 
-    // FIXED: Proper template literal URL
     const response = await fetch(
       https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey},
       {
@@ -53,7 +49,7 @@ Return ONLY a valid JSON array. No extra text, no markdown, no backticks. Exampl
         body: JSON.stringify({
           contents: [{ parts: [{ text: systemPrompt }] }],
           generationConfig: {
-            temperature: 0.9, // Higher = more creative and varied
+            temperature: 0.9,
             maxOutputTokens: 2000,
           }
         })
@@ -72,7 +68,6 @@ Return ONLY a valid JSON array. No extra text, no markdown, no backticks. Exampl
     const data = await response.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Clean any accidental markdown wrapping from the AI
     const cleanJson = rawText
       .replace(/
       .replace(/
