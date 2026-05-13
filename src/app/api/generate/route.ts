@@ -8,7 +8,7 @@ export async function GET() {
       return NextResponse.json([{ Title: "Key Error", Script: "Check Vercel Dashboard for GEMINI_API_KEY" }]);
     }
 
-    const systemPrompt = "RAW JSON ONLY, NO MARKDOWN, NO EXPLANATIONS. Return only a raw JSON array that starts with [ and ends with ].";
+    const systemPrompt = "Return ONLY a raw JSON array. NO introductory text, NO markdown code blocks, and NO backticks.";
 
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
