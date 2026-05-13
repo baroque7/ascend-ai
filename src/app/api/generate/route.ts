@@ -1,20 +1,29 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY || "");
-
 export async function GET() {
+  // We check BOTH possible names just in case
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json([{ Title: "Error", Script: "API Key is missing in Vercel settings.", Caption: "Check Keys", Hashtags: "#error" }]);
+  }
+
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: { responseMimeType: "application/json" }
-    });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = "Return a JSON array of 5 viral TikTok ideas for a US audience. Each must have: Title, Hook, Script, Caption, Hashtags.";
-
+    const prompt = "Generate 3 viral TikTok hook ideas for a US audience about faceless AI automation. Return ONLY a JSON array with 'Title', 'Script', 'Caption', and 'Hashtags' keys.";
+    
     const result = await model.generateContent(prompt);
-    return NextResponse.json(JSON.parse(result.response.text()));
-  } catch (e) {
-    return NextResponse.json([{ Title: "AI is loading...", Script: "Check keys" }]);
+    const response = await result.response;
+    const text = response.text();
+    
+    // Clean the AI response to make sure it's pure JSON
+    const cleanJson = text.replace(/```json|
+```/g, "");
+    return NextResponse.json(JSON.parse(cleanJson));
+  } catch (error) {
+    return NextResponse.json([{ Title: "AI Error", Script: "The AI is having trouble connecting. Check if your key is active in Google AI Studio.", Caption: "Connection Issue", Hashtags: "#debug" }]);
   }
 }
