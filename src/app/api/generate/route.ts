@@ -8,7 +8,7 @@ export async function GET() {
       return NextResponse.json([{ Title: "Key Error", Script: "Check Vercel Dashboard for GEMINI_API_KEY" }]);
     }
 
-    const systemPrompt = "Return ONLY a raw JSON array. Do not include markdown code blocks, backticks, or any introductory text. Start with [ and end with ].";
+    const systemPrompt = "RAW JSON ONLY, NO MARKDOWN, NO EXPLANATIONS. Return only a raw JSON array that starts with [ and ends with ].";
 
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
@@ -23,18 +23,16 @@ export async function GET() {
 
     const data = await response.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
 
     try {
-      const match = cleanedText.match(/\[([\s\S]*)\]$/m);
+      const match = rawText.match(/\[[\s\S]*\]/);
       if (!match) {
-        return NextResponse.json([{ Title: "Error", Script: "No JSON array found in AI response" }], { status: 500 });
+        return NextResponse.json([{ Title: "Error", Script: "No JSON array found in AI response. Ensure the model returns raw JSON only." }], { status: 500 });
       }
 
-      const jsonString = cleanedText.slice(cleanedText.indexOf('['), cleanedText.lastIndexOf(']') + 1);
-      return NextResponse.json(JSON.parse(jsonString));
+      return NextResponse.json(JSON.parse(match[0]));
     } catch (parseError) {
-      return NextResponse.json([{ Title: "Error", Script: "Server failed to parse response" }], { status: 500 });
+      return NextResponse.json([{ Title: "Error", Script: "Server failed to parse AI array response." }], { status: 500 });
     }
   } catch (error) {
     return NextResponse.json([{ Title: "Error", Script: "Server failed to parse response" }], { status: 500 });
