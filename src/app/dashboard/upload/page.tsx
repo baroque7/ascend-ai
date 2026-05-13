@@ -1,87 +1,81 @@
-'use client'
-import { useState } from 'react'
-import Link from 'next/link'
+"use client";
 
-export default function Upload() {
-  const [caption, setCaption] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [success, setSuccess] = useState(false)
+import React, { useState } from 'react';
+import { Upload, Plus, X, Film, Image as ImageIcon } from 'lucide-react';
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
+export default function UploadPage() {
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prev) => [...prev, ...filesArray]);
     }
-  }
+  };
 
-  async function handlePost() {
-    if (!file) {
-      alert('Please select a video first')
-      return
-    }
-    setUploading(true)
-    setTimeout(() => {
-      setUploading(false)
-      setSuccess(true)
-    }, 2000)
-  }
-
-  if (success) {
-    return (
-      <div style={{background:'#000',minHeight:'100vh',padding:'24px',paddingBottom:'80px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
-        <div style={{fontSize:'64px',marginBottom:'16px'}}>✅</div>
-        <h2 style={{color:'#fff',fontSize:'22px',fontWeight:'bold',marginBottom:'8px'}}>Content Received!</h2>
-        <p style={{color:'#666',fontSize:'15px',marginBottom:'32px',maxWidth:'300px'}}>Your video has been received. We will post it from your US TikTok account within 24 hours.</p>
-        <Link href="/dashboard" style={{background:'#FFD700',color:'#000',padding:'14px 32px',borderRadius:'50px',textDecoration:'none',fontWeight:'bold',fontSize:'16px'}}>Back to Dashboard</Link>
-      </div>
-    )
-  }
+  const removeFile = (index: number) => {
+    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
+  };
 
   return (
-    <div style={{background:'#000',minHeight:'100vh',padding:'24px',paddingBottom:'80px'}}>
-      <div style={{display:'flex',alignItems:'center',marginBottom:'24px'}}>
-        <Link href="/dashboard" style={{color:'#666',textDecoration:'none',marginRight:'16px',fontSize:'20px'}}>←</Link>
-        <h1 style={{color:'#FFD700',fontSize:'22px',fontWeight:'bold',margin:0}}>Upload Content</h1>
-      </div>
+    <div className="min-h-screen bg-black text-white p-6 pb-24 font-sans">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-[#FFD700]">Upload</h1>
+        <p className="text-gray-500 text-sm mt-1">Videos will be posted from US Cloud Phone</p>
+      </header>
 
-      <p style={{color:'#666',fontSize:'14px',marginBottom:'24px'}}>Upload your video and we will post it from your US TikTok account</p>
-
-      <label style={{display:'block',background:'#111',border:'2px dashed #333',borderRadius:'12px',padding:'40px 20px',textAlign:'center',cursor:'pointer',marginBottom:'16px'}}>
-        <input type="file" accept="video/*,image/*" onChange={handleFile} style={{display:'none'}}/>
-        {file ? (
-          <div>
-            <div style={{fontSize:'32px',marginBottom:'8px'}}>✅</div>
-            <p style={{color:'#fff',fontSize:'16px',fontWeight:'bold',margin:0,marginBottom:'4px'}}>{file.name}</p>
-            <p style={{color:'#666',fontSize:'13px',margin:0}}>Tap to change</p>
+      <div className="space-y-6">
+        {/* Upload Box */}
+        <div className="relative border-2 border-dashed border-[#222] rounded-3xl p-10 flex flex-col items-center justify-center bg-[#0a0a0a] group hover:border-[#FFD700]/50 transition-all">
+          <input 
+            type="file" 
+            multiple 
+            accept="video/*,image/*"
+            className="absolute inset-0 opacity-0 cursor-pointer"
+            onChange={handleFileChange}
+          />
+          <div className="w-16 h-16 bg-[#FFD700]/10 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <Plus className="text-[#FFD700] w-8 h-8" />
           </div>
-        ) : (
-          <div>
-            <div style={{fontSize:'48px',marginBottom:'8px'}}>⬆️</div>
-            <p style={{color:'#fff',fontSize:'16px',fontWeight:'bold',margin:0,marginBottom:'4px'}}>Select Video or Photo</p>
-            <p style={{color:'#666',fontSize:'13px',margin:0}}>Tap to choose from your gallery</p>
+          <p className="font-bold text-lg">Tap to select media</p>
+          <p className="text-gray-500 text-xs mt-1 text-center">Supports Video & Multiple Photos (Carousel)</p>
+        </div>
+
+        {/* Selected Files Preview */}
+        {selectedFiles.length > 0 && (
+          <div className="grid grid-cols-2 gap-4">
+            {selectedFiles.map((file, idx) => (
+              <div key={idx} className="relative aspect-square bg-[#111] rounded-2xl border border-[#222] flex items-center justify-center overflow-hidden">
+                <button 
+                  onClick={() => removeFile(idx)}
+                  className="absolute top-2 right-2 bg-red-600 rounded-full p-1 z-10"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+                {file.type.startsWith('video') ? (
+                  <Film className="text-gray-600 w-8 h-8" />
+                ) : (
+                  <ImageIcon className="text-gray-600 w-8 h-8" />
+                )}
+                <p className="absolute bottom-2 left-2 text-[10px] text-gray-400 truncate w-[80%]">
+                  {file.name}
+                </p>
+              </div>
+            ))}
           </div>
         )}
-      </label>
 
-      <div style={{marginBottom:'24px'}}>
-        <label style={{color:'#fff',fontSize:'14px',fontWeight:'bold',display:'block',marginBottom:'8px'}}>Caption</label>
-        <textarea 
-          value={caption} 
-          onChange={e=>setCaption(e.target.value)}
-          placeholder="Write your caption or use one from Today's Ideas..."
-          rows={4}
-          style={{width:'100%',padding:'14px',background:'#111',border:'1px solid #222',borderRadius:'8px',color:'#fff',fontSize:'15px',boxSizing:'border-box',outline:'none',resize:'none',fontFamily:'inherit'}}
-        />
+        <button 
+          disabled={selectedFiles.length === 0}
+          className={w-full py-4 rounded-2xl font-bold text-lg transition-all ${
+            selectedFiles.length > 0 
+            ? 'bg-[#FFD700] text-black shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
+            : 'bg-[#111] text-gray-600 cursor-not-allowed'
+          }}
+        >
+          {selectedFiles.length > 0 ? Schedule ${selectedFiles.length} Posts : 'Waiting for media...'}
+        </button>
       </div>
-
-      <button 
-        onClick={handlePost} 
-        disabled={uploading}
-        style={{width:'100%',padding:'16px',background:'#FFD700',border:'none',borderRadius:'50px',color:'#000',fontSize:'18px',fontWeight:'bold',cursor:'pointer'}}>
-        {uploading ? 'Sending...' : 'Post Now'}
-      </button>
-
-      <p style={{color:'#444',fontSize:'12px',textAlign:'center',marginTop:'16px'}}>We will post this from your US TikTok account within 24 hours</p>
     </div>
-  )
+  );
 }
