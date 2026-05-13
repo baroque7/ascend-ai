@@ -2,7 +2,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // We check BOTH possible names just in case
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -19,11 +18,11 @@ export async function GET() {
     const response = await result.response;
     const text = response.text();
     
-    // Clean the AI response to make sure it's pure JSON
+    // This was the broken line—it's clean now:
     const cleanJson = text.replace(/```json|
 ```/g, "");
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error) {
-    return NextResponse.json([{ Title: "AI Error", Script: "The AI is having trouble connecting. Check if your key is active in Google AI Studio.", Caption: "Connection Issue", Hashtags: "#debug" }]);
+    return NextResponse.json([{ Title: "AI Error", Script: "The AI is having trouble connecting.", Caption: "Connection Issue", Hashtags: "#debug" }]);
   }
 }
