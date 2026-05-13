@@ -24,8 +24,7 @@ export async function GET() {
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = text.replace(/```json/g, '').replace(/
-```/g, '').trim();
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error) {

@@ -25,7 +25,7 @@ export default function IdeasPage() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-yellow-500">Daily Hooks</h1>
         <button onClick={fetchHooks} disabled={loading} className="p-2 border border-yellow-500 rounded-full">
-          <RefreshCw className="{loading" ? "animate-spin" : ""}/>
+          <RefreshCw className={loading ? "animate-spin" : ""} />
         </button>
       </div>
 
