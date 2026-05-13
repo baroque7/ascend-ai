@@ -6,8 +6,8 @@ import Link from 'next/link';
 export default function Ideas() {
   const [open, setOpen] = useState<number | null>(null);
   const items = [
-    { id: 1, t: "The 'Secret' Hook", h: "Stop scrolling if...", s: "Show coffee, then phone." },
-    { id: 2, t: "US Daily Vlog", h: "A day in the life...", s: "Fast cuts of morning routine." }
+    { id: 1, t: "The 'Secret' Hook", h: "Stop scrolling...", s: "Show coffee, then phone." },
+    { id: 2, t: "US Daily Vlog", h: "A day in the life...", s: "Fast cuts of routine." }
   ];
 
   return (
