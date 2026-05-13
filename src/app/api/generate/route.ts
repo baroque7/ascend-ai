@@ -23,10 +23,21 @@ export async function GET() {
     );
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    
-    return NextResponse.json(JSON.parse(cleanJson));
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const cleanedText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const start = cleanedText.indexOf('[');
+    const end = cleanedText.lastIndexOf(']');
+
+    if (start === -1 || end === -1 || end <= start) {
+      return NextResponse.json([{ Title: "Error", Script: "No JSON array found in AI response" }], { status: 500 });
+    }
+
+    try {
+      const jsonString = cleanedText.slice(start, end + 1);
+      return NextResponse.json(JSON.parse(jsonString));
+    } catch (parseError) {
+      return NextResponse.json([{ Title: "Error", Script: "Server failed to parse response" }], { status: 500 });
+    }
   } catch (error) {
     return NextResponse.json([{ Title: "Error", Script: "Server failed to parse response" }], { status: 500 });
   }
