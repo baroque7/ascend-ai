@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
 
-const TOPICS = ["Faceless AI Automation", "AI Side Hustles", "TikTok Shop Secrets", "Viral AI Tools"];
-
 export async function GET() {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json([{ Title: "Error", Script: "API Key missing in Vercel settings." }]);
+      return NextResponse.json([{ Title: "Key Error", Script: "Check Vercel Dashboard for GEMINI_API_KEY" }]);
     }
 
-    const randomTopic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
-
-    // Using backticks () to wrap the entire prompt string
-    const systemPrompt = You are a viral TikTok content strategist who knows exactly what works for a US audience. Generate exactly 4 unique TikTok content ideas about: "${randomTopic}". Return ONLY a JSON array with 'Title', 'Script', 'Caption', and 'Hashtags' keys. No conversational text.;
+    // We are using a simple string here to avoid syntax errors
+    const systemPrompt = "Act as a viral TikTok strategist. Generate 4 unique content ideas about AI Automation. Return ONLY a JSON array with 'Title', 'Script', 'Caption', and 'Hashtags' keys.";
 
     const response = await fetch(
-      https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey},
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -28,14 +24,11 @@ export async function GET() {
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    // Clean up the JSON response from Gemini
-    const cleanJson = text.replace(/``json/g, '').replace(/
-`/g, '').trim();
+    const cleanJson = text.replace(/```json/g, '').replace(/
+```/g, '').trim();
     
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error) {
-    console.error('Gemini error:', error);
-    return NextResponse.json([{ Title: "Error", Script: "Failed to generate hooks." }], { status: 500 });
+    return NextResponse.json([{ Title: "Error", Script: "Server failed to parse response" }], { status: 500 });
   }
 }
