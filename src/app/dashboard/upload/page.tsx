@@ -4,7 +4,7 @@ import { Plus, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function UploadPage() {
-  const [files, setFiles] = useState([]);
+  const [files] = useState([]);
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
@@ -19,11 +19,9 @@ export default function UploadPage() {
         </div>
         <button 
           disabled={files.length === 0}
-          className={w-full py-4 rounded-2xl font-bold text-lg transition-all ${
-            files.length > 0 ? 'bg-[#FFD700] text-black' : 'bg-gray-900 text-gray-600'
-          }}
+          className="w-full py-4 rounded-2xl font-bold text-lg bg-[#111] text-gray-600"
         >
-          {files.length > 0 ? 'Schedule Post' : 'Waiting for media...'}
+          Waiting for media...
         </button>
       </div>
     </div>

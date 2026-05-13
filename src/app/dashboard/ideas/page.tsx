@@ -19,7 +19,8 @@ export default function Ideas() {
       <div className="space-y-3">
         {items.map(i => (
           <div key={i.id} onClick={() => setOpen(open === i.id ? null : i.id)} 
-               className={p-4 rounded-xl border ${open === i.id ? 'border-[#FFD700]' : 'border-gray-900'} bg-[#0a0a0a]}>
+               style={{ border: '1px solid', borderColor: open === i.id ? '#FFD700' : '#1a1a1a' }}
+               className="p-4 rounded-xl bg-[#0a0a0a] transition-all">
             <div className="flex items-center gap-3 font-bold text-sm">
               <Lightbulb className="w-4 h-4 text-[#FFD700]" /> {i.t}
             </div>
