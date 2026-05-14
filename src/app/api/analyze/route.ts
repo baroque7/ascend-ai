@@ -4,10 +4,10 @@ export async function POST(request: NextRequest) {
   try {
     const { username, niche } = await request.json()
 
-    const prompt = You are an Instagram growth strategist helping creators reach US audiences.
+    const prompt = `You are an Instagram growth strategist helping creators reach US audiences.
 
 A creator with Instagram handle @${username} wants to grow their US audience.
-${niche ? Their content niche is: ${niche} : 'Determine their best niche for the US market.'}
+${niche ? `Their content niche is: ${niche}` : 'Determine their best niche for the US market.'}
 
 Return ONLY this JSON with no extra text, no markdown, no backticks:
 {
@@ -17,10 +17,10 @@ Return ONLY this JSON with no extra text, no markdown, no backticks:
   "hashtags": "20 hashtags for US audiences in their niche separated by spaces",
   "postingTimes": "3 best times to post for US audiences with explanation",
   "profileTips": "3 tips to optimize their profile for US audience"
-}
+}`
 
     const response = await fetch(
-      https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY},
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -17,7 +17,7 @@ export async function GET() {
 
     const randomTopic = TOPICS[Math.floor(Math.random() * TOPICS.length)]
 
-    const prompt = You are a viral Instagram content strategist for US audiences.
+    const prompt = `You are a viral Instagram content strategist for US audiences.
 
 Generate exactly 4 unique content ideas about: "${randomTopic}"
 
@@ -29,10 +29,10 @@ Return ONLY this JSON array with no extra text, no markdown, no backticks:
     "Caption": "Short punchy caption under 150 characters",
     "Hashtags": "#hashtag1 #hashtag2 #hashtag3"
   }
-]
+]`
 
     const response = await fetch(
-      https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey},
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
