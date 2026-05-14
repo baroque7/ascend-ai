@@ -1,30 +1,60 @@
-"use client";
-import React from 'react';
-import Link from 'next/link';
-import { User, Lightbulb, Upload, Settings } from 'lucide-react';
+'use client'
+import { useAuth } from '@/contexts/AuthContext'
+import Link from 'next/link'
 
 export default function Dashboard() {
-  const menuItems = [
-    { title: 'Account', sub: 'US Setup', href: '/dashboard/account', icon: <User /> },
-    { title: 'Ideas', sub: 'AI Hooks', href: '/dashboard/ideas', icon: <Lightbulb /> },
-    { title: 'Upload', sub: 'Schedule', href: '/dashboard/upload', icon: <Upload /> },
-    { title: 'Settings', sub: 'Config', href: '/dashboard/settings', icon: <Settings /> },
-  ];
+  const { user } = useAuth()
+  const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
+
+  const cards = [
+    { emoji: '📊', title: 'Analyze My Instagram', sub: 'Enter your handle and get your US strategy', href: '/dashboard/analyze', gold: true },
+    { emoji: '💡', title: "Today's Content Ideas", sub: 'Scripts and captions for US audiences', href: '/dashboard/ideas', gold: false },
+    { emoji: '🎯', title: 'My US Strategy', sub: 'Your personalized growth plan', href: '/dashboard/strategy', gold: false },
+    { emoji: '📈', title: 'Growth Tracking', sub: 'Track your US audience progress', href: '/dashboard/tracking', gold: false },
+    { emoji: '⚙️', title: 'Settings', sub: 'Account and support', href: '/dashboard/settings', gold: false },
+  ]
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 pb-20">
-      <h1 className="text-3xl font-bold mb-8">Hello, <span className="text-[#FFD700]">Creator</span></h1>
-      <div className="grid gap-4">
-        {menuItems.map((item, i) => (
-          <Link key={i} href={item.href} className="bg-[#0a0a0a] border border-gray-900 p-5 rounded-2xl flex items-center gap-4 active:scale-95 transition-all">
-            <div className="text-[#FFD700]">{item.icon}</div>
-            <div>
-              <h3 className="font-bold text-sm">{item.title}</h3>
-              <p className="text-[10px] text-gray-500 uppercase">{item.sub}</p>
-            </div>
-          </Link>
-        ))}
+    <div style={{background:'#000',minHeight:'100vh',padding:'20px',paddingBottom:'100px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'28px'}}>
+        <h1 style={{color:'#FFD700',fontSize:'22px',fontWeight:'bold',margin:0}}>ascend.ai</h1>
+        <Link href="/dashboard/settings" style={{width:'34px',height:'34px',background:'#111',border:'1px solid #333',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:'16px'}}>👤</Link>
       </div>
+
+      <h2 style={{color:'#fff',fontSize:'22px',fontWeight:'bold',marginBottom:'4px'}}>Hey {firstName} 👋</h2>
+      <p style={{color:'#555',fontSize:'14px',marginBottom:'28px'}}>Let's grow your US Instagram audience</p>
+
+      {cards.map((card) => (
+        <Link key={card.href} href={card.href} style={{
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'space-between',
+          background: card.gold ? '#FFD700' : '#111',
+          border: card.gold ? 'none' : '1px solid #1e1e1e',
+          borderRadius:'14px',
+          padding:'16px 18px',
+          textDecoration:'none',
+          marginBottom:'12px'
+        }}>
+          <div style={{display:'flex',alignItems:'center',gap:'14px'}}>
+            <div style={{
+              width:'42px',
+              height:'42px',
+              background: card.gold ? 'rgba(0,0,0,0.1)' : '#1a1a1a',
+              borderRadius:'10px',
+              display:'flex',
+              alignItems:'center',
+              justifyContent:'center',
+              fontSize:'20px'
+            }}>{card.emoji}</div>
+            <div>
+              <h3 style={{color: card.gold ? '#000' : '#fff',fontSize:'15px',fontWeight:'bold',margin:0,marginBottom:'2px'}}>{card.title}</h3>
+              <p style={{color: card.gold ? '#333' : '#555',fontSize:'12px',margin:0}}>{card.sub}</p>
+            </div>
+          </div>
+          <span style={{color: card.gold ? '#000' : '#FFD700',fontSize:'18px'}}>›</span>
+        </Link>
+      ))}
     </div>
-  );
+  )
 }
