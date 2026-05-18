@@ -1,4 +1,4 @@
-# Git setup script for ascend.ai project
+# Git setup script for GramScaling project
 Set-Location "C:\Users\Admin\Documents\ascend.ai"
 
 # Initialize git repository
@@ -8,6 +8,6 @@ Set-Location "C:\Users\Admin\Documents\ascend.ai"
 & "C:\Program Files\Git\bin\git.exe" add .
 
 # Create initial commit
-& "C:\Program Files\Git\bin\git.exe" commit -m "Initial commit: Ascend.ai TikTok management platform"
+& "C:\Program Files\Git\bin\git.exe" commit -m "Initial commit: GramScaling Instagram growth platform"
 
 Write-Host "Git repository initialized and initial commit created"

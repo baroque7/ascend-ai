@@ -106,7 +106,7 @@ export default function ForgotPassword() {
                   </li>
                   <li className="flex items-start">
                     <span className="text-[#8b5cf6] mr-2">2.</span>
-                    Find the email from Ascend.ai (check spam folder too)
+                    Find the email from GramScaling (check spam folder too)
                   </li>
                   <li className="flex items-start">
                     <span className="text-[#8b5cf6] mr-2">3.</span>
@@ -251,7 +251,7 @@ export default function ForgotPassword() {
           >
             <p className="text-sm text-[#6060a0]">
               Still having trouble?{' '}
-              <a href="mailto:support@ascend.ai" className="text-[#8b5cf6] hover:text-[#a78bfa] transition-colors">
+              <a href="mailto:support@gramscaling.com" className="text-[#8b5cf6] hover:text-[#a78bfa] transition-colors">
                 Contact Support
               </a>
             </p>

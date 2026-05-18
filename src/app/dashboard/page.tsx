@@ -1,6 +1,7 @@
 'use client'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import Logo from '@/components/layout/Logo'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -17,7 +18,9 @@ export default function Dashboard() {
   return (
     <div style={{background:'#000',minHeight:'100vh',padding:'20px',paddingBottom:'100px'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'28px'}}>
-        <h1 style={{color:'#FFD700',fontSize:'22px',fontWeight:'bold',margin:0}}>ascend.ai</h1>
+        <div style={{display:'flex',alignItems:'center'}}>
+          <Logo size={20} />
+        </div>
         <Link href="/dashboard/settings" style={{width:'34px',height:'34px',background:'#111',border:'1px solid #333',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',fontSize:'16px'}}>👤</Link>
       </div>
 

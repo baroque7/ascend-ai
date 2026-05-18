@@ -30,7 +30,7 @@ export default function Login() {
     <div style={{background:'#000',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
       <div style={{width:'100%',maxWidth:'400px'}}>
         <h1 style={{color:'#FFD700',fontSize:'28px',fontWeight:'bold',textAlign:'center',marginBottom:'8px'}}>Welcome Back</h1>
-        <p style={{color:'#999',textAlign:'center',marginBottom:'32px',fontSize:'15px'}}>Sign in to your Ascend.ai account</p>
+        <p style={{color:'#999',textAlign:'center',marginBottom:'32px',fontSize:'15px'}}>Sign in to your GramScaling account</p>
         {error && <p style={{color:'#ff4444',marginBottom:'16px',textAlign:'center',fontSize:'14px'}}>{error}</p>}
         <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:'14px',background:'#111',border:'1px solid #222',borderRadius:'8px',color:'#fff',fontSize:'16px',marginBottom:'12px',boxSizing:'border-box',outline:'none'}}/>
         <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} style={{width:'100%',padding:'14px',background:'#111',border:'1px solid #222',borderRadius:'8px',color:'#fff',fontSize:'16px',marginBottom:'24px',boxSizing:'border-box',outline:'none'}}/>

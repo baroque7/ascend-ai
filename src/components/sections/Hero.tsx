@@ -118,7 +118,7 @@ export default function Hero() {
         {/* Launch badge */}
         <div className="inline-flex items-center gap-2 bg-[#111128] border border-[#2e2e5e] rounded-full px-4 py-1.5 text-sm mb-8">
           <span className="w-2 h-2 rounded-full bg-[#8b5cf6] animate-pulse" />
-          <span className="text-[#a0a0c0]">Introducing Ascend.ai — Global Content Intelligence</span>
+          <span className="text-[#a0a0c0]">Introducing GramScaling — Global Content Intelligence</span>
           <ArrowRight className="w-3.5 h-3.5 text-[#8b5cf6]" />
         </div>
 

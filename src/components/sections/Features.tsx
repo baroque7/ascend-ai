@@ -107,7 +107,7 @@ export default function Features() {
             <span className="gradient-text">one platform</span>
           </h2>
           <p className="text-[#a0a0c0] text-lg max-w-2xl mx-auto">
-            From account management to AI trend analysis, safety checks to real-time alerts — Ascend.ai gives you everything you need.
+            From account management to AI trend analysis, safety checks to real-time alerts — GramScaling gives you everything you need.
           </p>
         </div>
 

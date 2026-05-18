@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Logo from '@/components/layout/Logo'
 
 export default function Pricing() {
   return (
@@ -8,7 +9,9 @@ export default function Pricing() {
       <p style={{color:'#666',fontSize:'15px',marginBottom:'40px'}}>One plan. Everything included.</p>
 
       <div style={{background:'#111',border:'2px solid #FFD700',borderRadius:'16px',padding:'32px',width:'100%',maxWidth:'360px',marginBottom:'32px'}}>
-        <h2 style={{color:'#fff',fontSize:'20px',fontWeight:'bold',marginBottom:'4px'}}>Ascend.ai</h2>
+        <h2 style={{color:'#fff',fontSize:'20px',fontWeight:'bold',marginBottom:'4px'}}>
+          <Logo size={20} />
+        </h2>
         <p style={{color:'#666',fontSize:'14px',marginBottom:'24px'}}>AI Instagram Growth for US Audiences</p>
         <div style={{marginBottom:'24px'}}>
           <span style={{color:'#FFD700',fontSize:'48px',fontWeight:'bold'}}>$69</span>

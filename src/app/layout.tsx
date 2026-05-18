@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ascend.ai - Your US TikTok Account. Done For You.",
+  title: "GramScaling — Grow Your Instagram in the US",
   description: "We create your US TikTok account, tell you what to post every day, and post it automatically from a US device.",
 };
 

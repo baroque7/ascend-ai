@@ -1,5 +1,6 @@
-'use client'
+ 'use client'
 import Link from 'next/link'
+import Logo from '@/components/layout/Logo'
 
 export default function Payment() {
   return (
@@ -9,7 +10,9 @@ export default function Payment() {
         <p style={{color:'#999',fontSize:'15px',marginBottom:'32px'}}>You are one step away from your US TikTok account</p>
         
         <div style={{background:'#111',border:'1px solid #FFD700',borderRadius:'12px',padding:'24px',marginBottom:'32px'}}>
-          <h2 style={{color:'#fff',fontSize:'20px',fontWeight:'bold',marginBottom:'8px'}}>Ascend.ai</h2>
+          <h2 style={{color:'#fff',fontSize:'20px',fontWeight:'bold',marginBottom:'8px'}}>
+            <Logo size={18} />
+          </h2>
           <p style={{color:'#FFD700',fontSize:'36px',fontWeight:'bold',marginBottom:'4px'}}>$89.99</p>
           <p style={{color:'#666',fontSize:'14px',marginBottom:'24px'}}>/month</p>
           <div style={{textAlign:'left'}}>

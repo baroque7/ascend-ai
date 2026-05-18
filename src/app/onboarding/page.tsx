@@ -9,7 +9,7 @@ import { ArrowRight, Check, Sparkles, Target, Zap, Users } from 'lucide-react';
 const steps = [
   {
     id: 'welcome',
-    title: 'Welcome to Ascend.ai',
+    title: 'Welcome to GramScaling',
     description: 'Let\'s get you set up and ready to grow your audience with AI-powered content intelligence.',
     icon: Sparkles
   },

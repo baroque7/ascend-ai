@@ -1,12 +1,13 @@
 import Link from 'next/link'
+import Logo from '@/components/layout/Logo'
 
 export default function Home() {
   return (
     <div style={{background:'#000',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px',textAlign:'center'}}>
       
-      <h1 style={{color:'#FFD700',fontSize:'32px',fontWeight:'bold',marginBottom:'4px'}}>
-        ascend.ai
-      </h1>
+      <div style={{marginBottom:'4px'}}>
+        <Logo size={28} />
+      </div>
       
       <div style={{marginTop:'48px',marginBottom:'24px'}}>
         <h2 style={{color:'#fff',fontSize:'38px',fontWeight:'bold',lineHeight:'1.1',margin:'0'}}>

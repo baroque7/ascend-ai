@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Zap, X, Globe, MessageCircle } from "lucide-react";
+import Logo from "@/components/layout/Logo";
 
 export default function Footer() {
   const links = {
@@ -19,10 +20,7 @@ export default function Footer() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] flex items-center justify-center">
                 <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
               </div>
-              <span className="text-lg font-bold">
-                <span className="text-white">ascend</span>
-                <span className="gradient-text">.ai</span>
-              </span>
+              <Logo size={18} />
             </Link>
             <p className="text-[#6060a0] text-sm leading-relaxed max-w-xs">
               AI-powered content intelligence to help creators, agencies, and brands ascend to any audience — globally.
@@ -63,7 +61,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-14 pt-8 border-t border-[#1e1e3f] flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-[#6060a0] text-sm">
-            © 2025 Ascend.ai. All rights reserved.
+            © 2025 GramScaling. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Zap, Menu, X } from "lucide-react";
+import Logo from "@/components/layout/Logo";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -34,10 +35,7 @@ export default function Navbar() {
           <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-[#8b5cf6] to-[#3b82f6] flex items-center justify-center shadow-lg group-hover:shadow-[0_0_20px_rgba(139,92,246,0.6)] transition-shadow duration-300">
             <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
           </div>
-          <span className="text-lg font-bold tracking-tight">
-            <span className="text-white">ascend</span>
-            <span className="gradient-text">.ai</span>
-          </span>
+          <Logo size={20} />
         </Link>
 
         {/* Desktop Nav */}
