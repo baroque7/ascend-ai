@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
+
 export async function POST(request: NextRequest) {
   try {
     const { username, niche } = await request.json()
@@ -8,13 +10,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Instagram username is required' }, { status: 400 })
     }
 
+    if (!GEMINI_KEY) {
+      return NextResponse.json({ error: 'AI service not configured.' }, { status: 500 })
+    }
+
     const prompt = `You are an Instagram growth strategist helping creators reach US audiences.
 
 A creator with Instagram handle @${username} wants to grow their US audience.
-${niche ? `Their content niche is: ${niche}` : 'Determine their best niche for the US market.'}`
+${niche ? `Their content niche is: ${niche}` : 'Determine their best niche for the US market.'}
+
+Provide a comprehensive US growth strategy. Scripts should match the creator's likely language/origin based on username, but hashtags and captions must always be in English.`
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,63 +38,42 @@ ${niche ? `Their content niche is: ${niche}` : 'Determine their best niche for t
                 strategy: { type: 'STRING' },
                 hashtags: { type: 'STRING' },
                 postingTimes: { type: 'STRING' },
-                profileTips: { type: 'STRING' }
+                profileTips: { type: 'STRING' },
               },
-              required: ['niche', 'analysis', 'strategy', 'hashtags', 'postingTimes', 'profileTips']
+              required: ['niche', 'analysis', 'strategy', 'hashtags', 'postingTimes', 'profileTips'],
             },
             temperature: 0.7,
-            maxOutputTokens: 4000
-          }
-        })
+            maxOutputTokens: 4000,
+          },
+        }),
       }
     )
 
     const data = await response.json()
 
-    // 1. Handle HTTP errors explicitly
     if (!response.ok) {
-      console.error('Gemini API HTTP Error:', response.status, JSON.stringify(data))
+      console.error('Gemini API error:', response.status, data)
       if (response.status === 429) {
-        return NextResponse.json(
-          { error: 'AI limit reached. Please wait 10 seconds and try again!' },
-          { status: 429 }
-        )
+        return NextResponse.json({ error: 'AI limit reached. Please wait 10 seconds and try again.' }, { status: 429 })
       }
-      return NextResponse.json(
-        { error: data.error?.message || 'AI service is temporarily unavailable.' },
-        { status: response.status }
-      )
+      return NextResponse.json({ error: data.error?.message || 'AI service temporarily unavailable.' }, { status: response.status })
     }
 
-    // 2. Handle block/safety reasons explicitly
     const candidate = data.candidates?.[0]
     if (!candidate) {
-      return NextResponse.json(
-        { error: 'No response received from AI. Please try a different username or niche.' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'No response from AI. Try a different username.' }, { status: 500 })
     }
 
     if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-      console.warn('Gemini finished with abnormal reason:', candidate.finishReason)
       if (candidate.finishReason === 'SAFETY') {
-        return NextResponse.json(
-          { error: 'Content blocked by safety filters. Please try another username or niche.' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Content flagged by safety filters. Try a different username.' }, { status: 400 })
       }
-      return NextResponse.json(
-        { error: `AI analysis interrupted (Reason: ${candidate.finishReason}). Please try again.` },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: `AI interrupted (${candidate.finishReason}). Please try again.` }, { status: 500 })
     }
 
     const text = candidate.content?.parts?.[0]?.text
     if (!text) {
-      return NextResponse.json(
-        { error: 'Received empty analysis from AI. Please try again.' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Empty response from AI. Please try again.' }, { status: 500 })
     }
 
     const parsed = JSON.parse(text.trim())
@@ -94,6 +81,6 @@ ${niche ? `Their content niche is: ${niche}` : 'Determine their best niche for t
 
   } catch (error: any) {
     console.error('Analyze error:', error)
-    return NextResponse.json({ error: `Analysis failed: ${error.message || error}` }, { status: 500 })
+    return NextResponse.json({ error: `Analysis failed: ${error.message || 'Unknown error'}` }, { status: 500 })
   }
 }

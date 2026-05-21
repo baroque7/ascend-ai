@@ -1,263 +1,115 @@
-'use client';
+'use client'
+import { useState } from 'react'
+import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
+import { createClient } from '@supabase/supabase-js'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
-import { resetPassword } from '@/lib/supabase';
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const router = useRouter();
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = 'Invalid email address';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    
+  async function handleSubmit(e: React.SyntheticEvent) {
+    e.preventDefault()
+    if (!email.trim()) { setError('Please enter your email'); return }
+    setLoading(true); setError('')
     try {
-      const { error } = await resetPassword(email);
-
-      if (error) {
-        throw error;
-      }
-      
-      setIsSubmitted(true);
-    } catch (error) {
-      console.error('Password reset error:', error);
-      setErrors({ general: error instanceof Error ? error.message : 'Failed to send reset email. Please try again.' });
-    } finally {
-      setIsLoading(false);
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+      })
+      if (err) throw err
+      setSent(true)
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email. Please try again.')
     }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    // Clear error when user starts typing
-    if (errors.email) {
-      setErrors(prev => ({ ...prev, email: '' }));
-    }
-  };
-
-  if (isSubmitted) {
-    return (
-      <div className="min-h-screen bg-[#060611] flex flex-col">
-        {/* Background gradient */}
-        <div className="fixed inset-0 bg-gradient-to-br from-[#8b5cf6]/10 via-[#3b82f6]/5 to-[#06b6d4]/10 pointer-events-none" />
-        
-        {/* Navigation */}
-        <nav className="relative z-10 px-6 py-4">
-          <Link 
-            href="/login"
-            className="inline-flex items-center text-[#a0a0c0] hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Login
-          </Link>
-        </nav>
-
-        {/* Success content */}
-        <div className="flex-1 relative z-10 px-6 py-12 flex items-center justify-center">
-          <div className="max-w-md w-full">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="text-center"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/20 rounded-full mb-6">
-                <CheckCircle className="w-8 h-8 text-green-400" />
-              </div>
-              
-              <h1 className="text-3xl font-bold mb-4 text-white">
-                Check Your Email
-              </h1>
-              
-              <p className="text-lg text-[#a0a0c0] mb-8">
-                We've sent a password reset link to<br />
-                <span className="text-[#8b5cf6] font-medium">{email}</span>
-              </p>
-              
-              <div className="glass-card rounded-2xl p-6 text-left mb-6">
-                <h2 className="text-lg font-semibold text-white mb-4">What happens next?</h2>
-                <ul className="space-y-3 text-sm text-[#a0a0c0]">
-                  <li className="flex items-start">
-                    <span className="text-[#8b5cf6] mr-2">1.</span>
-                    Open your email inbox
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-[#8b5cf6] mr-2">2.</span>
-                    Find the email from GramScaling (check spam folder too)
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-[#8b5cf6] mr-2">3.</span>
-                    Click the reset link in the email
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-[#8b5cf6] mr-2">4.</span>
-                    Create a new password
-                  </li>
-                </ul>
-              </div>
-              
-              <div className="space-y-4">
-                <p className="text-sm text-[#6060a0]">
-                  Didn't receive the email?{' '}
-                  <button 
-                    onClick={() => setIsSubmitted(false)}
-                    className="text-[#8b5cf6] hover:text-[#a78bfa] transition-colors"
-                  >
-                    Try again
-                  </button>
-                </p>
-                
-                <Link 
-                  href="/login"
-                  className="inline-block text-sm text-[#8b5cf6] hover:text-[#a78bfa] transition-colors"
-                >
-                  Back to Sign In
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-    );
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen bg-[#060611] flex flex-col">
-      {/* Background gradient */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#8b5cf6]/10 via-[#3b82f6]/5 to-[#06b6d4]/10 pointer-events-none" />
-      
-      {/* Navigation */}
-      <nav className="relative z-10 px-6 py-4">
-        <Link 
-          href="/login"
-          className="inline-flex items-center text-[#a0a0c0] hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Login
-        </Link>
-      </nav>
-
-      {/* Main content */}
-      <div className="flex-1 relative z-10 px-6 py-12 flex items-center justify-center">
-        <div className="max-w-md w-full">
+    <div style={{ background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <AnimatePresence mode="wait">
+        {!sent ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            key="form"
+            initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-8"
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.4 }}
+            style={{ width: '100%', maxWidth: 400 }}
           >
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#8b5cf6]/20 rounded-full mb-6">
-              <Mail className="w-8 h-8 text-[#8b5cf6]" />
-            </div>
-            
-            <h1 className="text-3xl font-bold mb-4 text-white">
-              Forgot Your Password?
-            </h1>
-            
-            <p className="text-lg text-[#a0a0c0]">
-              No worries. Enter your email address and we'll send you a link to reset your password.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="glass-card rounded-2xl p-8"
-          >
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Email */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-[#f8f8ff] mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-[#0d0d1f] border border-[#1e1e3f] rounded-lg text-white placeholder-[#6060a0] focus:outline-none focus:border-[#8b5cf6] focus:ring-1 focus:ring-[#8b5cf6] transition-colors"
-                  placeholder="you@example.com"
-                  disabled={isLoading}
-                  autoComplete="email"
-                />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-400">{errors.email}</p>
-                )}
+            <Link href="/" style={{ display: 'block', textAlign: 'center', color: '#FFD700', fontWeight: 900, fontSize: 22, textDecoration: 'none', marginBottom: 40 }}>
+              GramScaling
+            </Link>
+            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+              <div style={{ width: 64, height: 64, background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>
+                ✉️
               </div>
+              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>Forgot Password?</h1>
+              <p style={{ color: '#555', fontSize: 15, lineHeight: 1.6 }}>Enter your email and we'll send a reset link.</p>
+            </div>
 
-              {/* Error Message */}
-              {errors.general && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="bg-red-500/10 border border-red-500/20 rounded-lg p-4"
-                >
-                  <p className="text-red-400 text-sm">{errors.general}</p>
-                </motion.div>
-              )}
+            {error && (
+              <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)', borderRadius: 10, padding: '12px', marginBottom: 16, textAlign: 'center' }}>
+                <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>{error}</p>
+              </div>
+            )}
 
-              {/* Submit Button */}
-              <button
+            <form onSubmit={handleSubmit}>
+              <input
+                type="email" placeholder="Email address" value={email}
+                onChange={e => setEmail(e.target.value)}
+                style={{ width: '100%', padding: '15px 16px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 16, boxSizing: 'border-box', outline: 'none', marginBottom: 16 }}
+                autoComplete="email"
+              />
+              <motion.button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-[#8b5cf6] to-[#3b82f6] text-white font-semibold py-3 px-6 rounded-lg hover:from-[#7c3aed] hover:to-[#2563eb] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed glow-purple"
+                disabled={loading}
+                whileTap={{ scale: 0.98 }}
+                style={{ width: '100%', padding: '16px', background: loading ? '#B8960C' : '#FFD700', border: 'none', borderRadius: 50, color: '#000', fontSize: 17, fontWeight: 800, cursor: loading ? 'default' : 'pointer' }}
               >
-                {isLoading ? 'Sending Reset Link...' : 'Send Reset Link'}
-              </button>
+                {loading ? 'Sending…' : 'Send Reset Link'}
+              </motion.button>
             </form>
 
-            {/* Sign In Link */}
-            <div className="mt-6 text-center">
-              <p className="text-[#a0a0c0]">
-                Remember your password?{' '}
-                <Link href="/login" className="text-[#8b5cf6] hover:text-[#a78bfa] transition-colors font-medium">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </motion.div>
-
-          {/* Additional Help */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-center"
-          >
-            <p className="text-sm text-[#6060a0]">
-              Still having trouble?{' '}
-              <a href="mailto:support@gramscaling.com" className="text-[#8b5cf6] hover:text-[#a78bfa] transition-colors">
-                Contact Support
-              </a>
+            <p style={{ color: '#444', textAlign: 'center', marginTop: 28, fontSize: 14 }}>
+              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>← Back to Sign In</Link>
             </p>
           </motion.div>
-        </div>
-      </div>
+        ) : (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}
+          >
+            <div style={{ width: 72, height: 72, background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', fontSize: 32 }}>
+              ✅
+            </div>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.5px' }}>Check Your Email</h1>
+            <p style={{ color: '#555', fontSize: 15, lineHeight: 1.7, marginBottom: 32 }}>
+              We sent a reset link to{' '}
+              <span style={{ color: '#FFD700' }}>{email}</span>.
+              Check your inbox (and spam folder).
+            </p>
+            <button
+              onClick={() => setSent(false)}
+              style={{ color: '#555', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Try a different email
+            </button>
+            <div style={{ marginTop: 24 }}>
+              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>← Back to Sign In</Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  );
+  )
 }

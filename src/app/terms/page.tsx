@@ -1,20 +1,40 @@
+import Link from 'next/link'
+
 export default function Terms() {
   return (
-    <div style={{background:'#000',minHeight:'100vh',padding:'40px 24px',maxWidth:'600px',margin:'0 auto'}}>
-      <h1 style={{color:'#FFD700',fontSize:'28px',fontWeight:'bold',marginBottom:'32px'}}>Terms of Service</h1>
-      <div style={{color:'#999',fontSize:'15px',lineHeight:'1.8'}}>
-        <h2 style={{color:'#fff',fontSize:'18px',marginBottom:'8px'}}>1. Service Description</h2>
-        <p style={{marginBottom:'24px'}}>GramScaling creates and manages US TikTok and Instagram accounts on your behalf. You are responsible for the content you upload.</p>
-        <h2 style={{color:'#fff',fontSize:'18px',marginBottom:'8px'}}>2. User Responsibilities</h2>
-        <p style={{marginBottom:'24px'}}>You agree to only upload content that you own or have rights to. You are responsible for ensuring your content complies with TikTok and Instagram community guidelines.</p>
-        <h2 style={{color:'#fff',fontSize:'18px',marginBottom:'8px'}}>3. No Guarantee of Results</h2>
-        <p style={{marginBottom:'24px'}}>We do not guarantee specific follower counts, views or engagement. Results vary based on content quality and consistency.</p>
-        <h2 style={{color:'#fff',fontSize:'18px',marginBottom:'8px'}}>4. Refund Policy</h2>
-        <p style={{marginBottom:'24px'}}>No refunds after 7 days of subscription. If you experience technical issues contact us at baroqueincoporated@gmail.com.</p>
-        <h2 style={{color:'#fff',fontSize:'18px',marginBottom:'8px'}}>5. Account Termination</h2>
-        <p style={{marginBottom:'24px'}}>We reserve the right to terminate accounts that violate these terms or platform guidelines.</p>
+    <div style={{ background: '#000', minHeight: '100vh', padding: '40px 24px', maxWidth: 600, margin: '0 auto' }}>
+      <Link href="/" style={{ color: '#FFD700', fontWeight: 900, fontSize: 20, textDecoration: 'none', display: 'block', marginBottom: 48 }}>
+        GramScaling
+      </Link>
+
+      <h1 style={{ color: '#fff', fontSize: 32, fontWeight: 900, marginBottom: 8, letterSpacing: '-1px' }}>Terms of Service</h1>
+      <p style={{ color: '#333', fontSize: 13, marginBottom: 40 }}>Last updated: May 2026</p>
+
+      <div style={{ color: '#888', fontSize: 15, lineHeight: 1.8 }}>
+        {[
+          ['1. Service Description', 'GramScaling is an AI-powered Instagram growth tool. We analyze your profile, generate content strategies, and provide daily content ideas to help you reach US audiences. You remain in full control of your account and content.'],
+          ['2. Subscription & Billing', 'GramScaling is $69/month. A 7-day free trial is available for new accounts. After the trial, your subscription auto-renews monthly. You may cancel at any time from your account settings.'],
+          ['3. User Responsibilities', 'You agree to (a) provide accurate information during signup, (b) only use the service for lawful purposes, (c) not share your account credentials, and (d) comply with Instagram\'s Terms of Service and Community Guidelines.'],
+          ['4. Content Ownership', 'You retain full ownership of any content you create. GramScaling does not claim ownership over your posts, captions, or media. AI-generated scripts are provided as suggestions — you\'re free to edit them.'],
+          ['5. No Guarantee of Results', 'While our AI provides best-in-class growth strategies, we cannot guarantee specific follower counts, views, or engagement metrics. Results depend on your posting consistency and content quality.'],
+          ['6. Refund Policy', 'You may cancel within 7 days of your first charge for a full refund. After 7 days, no refunds are issued for the current billing period. See our Refund Policy for full details.'],
+          ['7. Account Termination', 'We reserve the right to suspend or terminate accounts that violate these terms, engage in abuse, or attempt to reverse-engineer our service.'],
+          ['8. Limitation of Liability', 'GramScaling is not liable for any indirect, incidental, or consequential damages arising from use of our service. Our maximum liability is limited to the amount you paid in the last 30 days.'],
+          ['9. Changes to Terms', 'We may update these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.'],
+          ['10. Contact', 'Questions about these Terms? Email baroqueincoporated@gmail.com'],
+        ].map(([title, text]) => (
+          <div key={title} style={{ marginBottom: 28 }}>
+            <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h2>
+            <p style={{ margin: 0 }}>{text}</p>
+          </div>
+        ))}
       </div>
-      <a href="/" style={{color:'#FFD700',textDecoration:'none',fontSize:'16px'}}>← Back Home</a>
+
+      <div style={{ display: 'flex', gap: 20, marginTop: 40, flexWrap: 'wrap' }}>
+        <Link href="/" style={{ color: '#333', fontSize: 13, textDecoration: 'none' }}>← Home</Link>
+        <Link href="/privacy" style={{ color: '#333', fontSize: 13, textDecoration: 'none' }}>Privacy Policy</Link>
+        <Link href="/refund" style={{ color: '#333', fontSize: 13, textDecoration: 'none' }}>Refund Policy</Link>
+      </div>
     </div>
   )
 }

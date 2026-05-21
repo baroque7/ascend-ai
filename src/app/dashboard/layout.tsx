@@ -1,19 +1,14 @@
-'use client';
+'use client'
 
-import BottomNav from '@/components/dashboard/BottomNav';
+import BottomNav from '@/components/dashboard/BottomNav'
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#000000] text-[#f8f8ff]">
-      <main className="relative z-10 pb-20">
+    <div style={{ background: '#000000', minHeight: '100vh', color: '#fff' }}>
+      <main style={{ paddingBottom: 80, paddingTop: 'max(0px, env(safe-area-inset-top))' }}>
         {children}
       </main>
-
       <BottomNav />
     </div>
-  );
+  )
 }
