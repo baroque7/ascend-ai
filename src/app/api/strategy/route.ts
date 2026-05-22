@@ -4,37 +4,20 @@ const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, niche, language } = await request.json()
+    const { username, niche, language, scrapeContext, analysisContext } = await request.json()
 
     if (!username) {
       return NextResponse.json({ error: 'Instagram username required' }, { status: 400 })
     }
-
     if (!GEMINI_KEY) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 500 })
     }
 
-    const lang = language && language !== 'en' ? language : 'English'
-
-    const prompt = `You are a premium brand strategist for Instagram creators targeting the US market.
-
-Analyze the Instagram creator "@${username}"${niche ? ` who creates ${niche} content` : ''}.
-Their preferred language for scripts is: ${lang}.
-
-Build a complete brand identity strategy. Be specific, bold, and actionable. No generic advice.
-
-Return ONLY this JSON:
-{
-  "brandIdentity": "2-3 sentences describing their unique brand identity and positioning in the US market",
-  "uniqueDifferentiator": "What makes them genuinely different from 1000 other creators in this niche — be specific and bold",
-  "usGrowthPlan": "A concrete 30-day action plan for US audience growth with specific steps",
-  "formatFatigueWarning": "The content formats that are oversaturated in their niche right now and why creators lose followers using them",
-  "profileTips": "3-5 specific profile optimization tips for attracting US followers",
-  "filmingTips": "3-4 specific filming environment and production tips that signal quality to US audiences",
-  "contentPillars": ["pillar1", "pillar2", "pillar3"],
-  "voiceAndTone": "Description of the exact voice, tone, and personality they should project to US audiences",
-  "estimatedTimeToResults": "Realistic timeline with milestones"
-}`
+    const lang = language || 'English'
+    const context = [
+      scrapeContext ? `Profile data: ${JSON.stringify(scrapeContext)}` : '',
+      analysisContext ? `Analysis: ${JSON.stringify(analysisContext)}` : '',
+    ].filter(Boolean).join('\n\n')
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
@@ -42,7 +25,14 @@ Return ONLY this JSON:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: `You are a premium brand strategist for Instagram creators targeting the US market.
+
+Creator: @${username}
+Niche: ${niche || 'general content'}
+Language: ${lang}
+${context}
+
+Build a complete brand identity strategy. Be specific, bold, and actionable. No generic advice.` }] }],
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -68,17 +58,14 @@ Return ONLY this JSON:
     )
 
     const data = await response.json()
-
     if (!response.ok) {
-      if (response.status === 429) return NextResponse.json({ error: 'AI limit reached. Wait a moment and try again.' }, { status: 429 })
-      return NextResponse.json({ error: data.error?.message || 'AI service unavailable' }, { status: response.status })
+      if (response.status === 429) return NextResponse.json({ error: 'AI limit reached. Wait a moment.' }, { status: 429 })
+      return NextResponse.json({ error: data.error?.message || 'AI unavailable' }, { status: response.status })
     }
 
     const candidate = data.candidates?.[0]
-    if (!candidate) return NextResponse.json({ error: 'No response from AI. Try again.' }, { status: 500 })
-
-    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-      return NextResponse.json({ error: `Analysis interrupted (${candidate.finishReason}). Try again.` }, { status: 500 })
+    if (!candidate || (candidate.finishReason && candidate.finishReason !== 'STOP')) {
+      return NextResponse.json({ error: `Strategy interrupted. Try again.` }, { status: 500 })
     }
 
     const text = candidate.content?.parts?.[0]?.text

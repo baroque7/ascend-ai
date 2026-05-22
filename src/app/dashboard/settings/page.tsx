@@ -1,35 +1,57 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useProfile } from '@/hooks/useProfile'
 import { motion } from 'framer-motion'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 const LANGUAGES = ['English', 'Spanish', 'French', 'Portuguese', 'Arabic', 'Italian', 'German', 'Turkish', 'Hindi', 'Indonesian']
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuth()
-  const [handle, setHandle] = useState(user?.user_metadata?.instagram_handle || '')
-  const [language, setLanguage] = useState(user?.user_metadata?.language || 'English')
+  const { user, signOut, supabase } = useAuth()
+  const { profile, updateProfile } = useProfile()
+  const [handle, setHandle] = useState('')
+  const [language, setLanguage] = useState('English')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+
+  useEffect(() => {
+    if (profile) {
+      setHandle(profile.instagram_handle || '')
+      setLanguage(profile.language || 'English')
+    }
+  }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPromo = user?.user_metadata?.is_promo === true
   const subStatus = user?.user_metadata?.subscription_status
 
   async function save() {
     setSaving(true)
-    await supabase.auth.updateUser({
-      data: {
-        instagram_handle: handle.replace('@', '').trim(),
-        language,
-      },
-    })
+    const cleanHandle = handle.replace('@', '').trim()
+    const hadHandle = profile?.instagram_handle
+    const handleChanged = cleanHandle !== hadHandle
+
+    // Update both user_metadata and profiles table
+    await supabase.auth.updateUser({ data: { instagram_handle: cleanHandle, language } })
+    await updateProfile({ instagram_handle: cleanHandle, language })
+
+    // If handle changed, trigger background re-scrape
+    if (handleChanged && cleanHandle) {
+      fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanHandle }),
+      }).then(async res => {
+        const result = await res.json()
+        if (result.profile && !result.error) {
+          await updateProfile({
+            scrape_data: result.profile,
+            scraped_at: new Date().toISOString(),
+          })
+        }
+      }).catch(() => {})
+    }
+
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -47,7 +69,7 @@ export default function SettingsPage() {
         <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 28px', letterSpacing: '-0.5px' }}>Settings</h1>
       </motion.div>
 
-      {/* Profile */}
+      {/* Profile card */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         style={{ background: 'rgba(255,215,0,0.04)', border: '1px solid rgba(255,215,0,0.1)', borderRadius: 16, padding: '18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
         <div style={{ width: 48, height: 48, background: '#FFD700', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, flexShrink: 0, color: '#000' }}>
@@ -99,7 +121,7 @@ export default function SettingsPage() {
         </select>
       </motion.div>
 
-      {/* Save button */}
+      {/* Save */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} style={{ marginBottom: 32 }}>
         <motion.button
           onClick={save}

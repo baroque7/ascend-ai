@@ -4,22 +4,19 @@ const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, niche } = await request.json()
+    const { username, niche, language, scrapeData } = await request.json()
 
     if (!username) {
       return NextResponse.json({ error: 'Instagram username is required' }, { status: 400 })
     }
-
     if (!GEMINI_KEY) {
       return NextResponse.json({ error: 'AI service not configured.' }, { status: 500 })
     }
 
-    const prompt = `You are an Instagram growth strategist helping creators reach US audiences.
-
-A creator with Instagram handle @${username} wants to grow their US audience.
-${niche ? `Their content niche is: ${niche}` : 'Determine their best niche for the US market.'}
-
-Provide a comprehensive US growth strategy. Scripts should match the creator's likely language/origin based on username, but hashtags and captions must always be in English.`
+    const lang = language || 'English'
+    const scrapeContext = scrapeData && Object.keys(scrapeData).length > 0
+      ? `\n\nProfile data: ${JSON.stringify(scrapeData)}`
+      : ''
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
@@ -27,7 +24,13 @@ Provide a comprehensive US growth strategy. Scripts should match the creator's l
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: `You are an Instagram growth strategist helping creators reach US audiences.
+
+Creator handle: @${username}
+Niche: ${niche || 'general content'}
+Language: ${lang}${scrapeContext}
+
+Provide a comprehensive US growth analysis. All text in English.` }] }],
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -39,6 +42,8 @@ Provide a comprehensive US growth strategy. Scripts should match the creator's l
                 hashtags: { type: 'STRING' },
                 postingTimes: { type: 'STRING' },
                 profileTips: { type: 'STRING' },
+                audienceInsights: { type: 'STRING' },
+                contentGaps: { type: 'STRING' },
               },
               required: ['niche', 'analysis', 'strategy', 'hashtags', 'postingTimes', 'profileTips'],
             },
@@ -50,37 +55,17 @@ Provide a comprehensive US growth strategy. Scripts should match the creator's l
     )
 
     const data = await response.json()
-
     if (!response.ok) {
-      console.error('Gemini API error:', response.status, data)
-      if (response.status === 429) {
-        return NextResponse.json({ error: 'AI limit reached. Please wait 10 seconds and try again.' }, { status: 429 })
-      }
-      return NextResponse.json({ error: data.error?.message || 'AI service temporarily unavailable.' }, { status: response.status })
+      if (response.status === 429) return NextResponse.json({ error: 'AI limit reached. Wait a moment.' }, { status: 429 })
+      return NextResponse.json({ error: data.error?.message || 'AI unavailable.' }, { status: response.status })
     }
 
-    const candidate = data.candidates?.[0]
-    if (!candidate) {
-      return NextResponse.json({ error: 'No response from AI. Try a different username.' }, { status: 500 })
-    }
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!text) return NextResponse.json({ error: 'Empty response from AI.' }, { status: 500 })
 
-    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-      if (candidate.finishReason === 'SAFETY') {
-        return NextResponse.json({ error: 'Content flagged by safety filters. Try a different username.' }, { status: 400 })
-      }
-      return NextResponse.json({ error: `AI interrupted (${candidate.finishReason}). Please try again.` }, { status: 500 })
-    }
-
-    const text = candidate.content?.parts?.[0]?.text
-    if (!text) {
-      return NextResponse.json({ error: 'Empty response from AI. Please try again.' }, { status: 500 })
-    }
-
-    const parsed = JSON.parse(text.trim())
-    return NextResponse.json(parsed)
-
+    return NextResponse.json(JSON.parse(text.trim()))
   } catch (error: any) {
     console.error('Analyze error:', error)
-    return NextResponse.json({ error: `Analysis failed: ${error.message || 'Unknown error'}` }, { status: 500 })
+    return NextResponse.json({ error: `Analysis failed: ${error.message}` }, { status: 500 })
   }
 }

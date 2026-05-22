@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useState, useEffect } from 'react'
+import { useProfile } from '@/hooks/useProfile'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface StrategyData {
@@ -54,95 +54,115 @@ function WarningSection({ content }: { content: string }) {
 }
 
 export default function StrategyPage() {
-  const { user } = useAuth()
-  const [username, setUsername] = useState(user?.user_metadata?.instagram_handle || '')
-  const [niche] = useState(user?.user_metadata?.niche || '')
-  const [loading, setLoading] = useState(false)
+  const { profile, loading: profileLoading, updateProfile } = useProfile()
   const [data, setData] = useState<StrategyData | null>(null)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
-  async function build(e: React.SyntheticEvent) {
-    e.preventDefault()
-    if (!username.trim()) { setError('Enter your Instagram username'); return }
-    setLoading(true); setError(''); setData(null)
+  useEffect(() => {
+    if (profileLoading) return
+    // If we have stored strategy, show it immediately
+    if (profile?.strategy_data && profile.strategy_data.brandIdentity) {
+      setData(profile.strategy_data as StrategyData)
+    } else if (profile?.instagram_handle || profile?.niche) {
+      // Auto-generate if no stored strategy
+      generateStrategy()
+    }
+  }, [profileLoading, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function generateStrategy() {
+    if (!profile) return
+    setGenerating(true)
+    setError('')
     try {
       const res = await fetch('/api/strategy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username.replace('@', '').trim(),
-          niche,
-          language: user?.user_metadata?.language || 'English',
+          username: profile.instagram_handle || 'creator',
+          niche: profile.niche,
+          language: profile.language,
+          scrapeContext: profile.scrape_data,
+          analysisContext: profile.analysis_data,
         }),
       })
       const json = await res.json()
       if (!res.ok || json.error) throw new Error(json.error || 'Strategy failed')
       setData(json)
+      // Persist to Supabase so next visit is instant
+      await updateProfile({ strategy_data: json })
     } catch (err: any) {
       setError(err.message || 'Could not build strategy. Try again.')
     }
-    setLoading(false)
+    setGenerating(false)
+  }
+
+  async function refresh() {
+    setData(null)
+    await generateStrategy()
+  }
+
+  const isLoading = profileLoading || (generating && !data)
+
+  if (!profileLoading && !profile?.instagram_handle && !profile?.niche) {
+    return (
+      <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>🎯</div>
+          <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 10 }}>Profile not set up</h2>
+          <p style={{ color: '#444', fontSize: 14, marginBottom: 24 }}>Complete onboarding to get your brand strategy.</p>
+          <a href="/onboarding" style={{ background: '#FFD700', color: '#000', padding: '14px 28px', borderRadius: 50, fontWeight: 900, fontSize: 15, textDecoration: 'none', display: 'inline-block' }}>
+            Set Up Profile →
+          </a>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
 
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 6px', letterSpacing: '-0.5px' }}>My US Strategy</h1>
-        <p style={{ color: '#333', fontSize: 14, margin: '0 0 28px' }}>Your unique brand identity and growth playbook.</p>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.5px' }}>My US Strategy</h1>
+          {profile?.instagram_handle && (
+            <p style={{ color: '#333', fontSize: 13, margin: 0 }}>@{profile.instagram_handle} · {profile.niche}</p>
+          )}
+        </div>
+        {data && !generating && (
+          <motion.button onClick={refresh} whileTap={{ scale: 0.9 }}
+            style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 12px', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            ↻ Refresh
+          </motion.button>
+        )}
       </motion.div>
 
+      {error && (
+        <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
+          <p style={{ color: '#ff6b6b', fontSize: 14, margin: '0 0 10px' }}>{error}</p>
+          <button onClick={generateStrategy} style={{ background: '#FFD700', border: 'none', borderRadius: 50, padding: '10px 20px', color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+            Try Again
+          </button>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
-        {!data ? (
-          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <form onSubmit={build}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, display: 'block', marginBottom: 8 }}>
-                  INSTAGRAM USERNAME
-                </label>
-                <input type="text" value={username} onChange={e => setUsername(e.target.value)}
-                  placeholder="@yourhandle" autoCapitalize="none"
-                  style={{ width: '100%', padding: '15px 16px', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 16, boxSizing: 'border-box', outline: 'none' }} />
-              </div>
-
-              <AnimatePresence>
-                {error && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 10, padding: 12, marginBottom: 14, textAlign: 'center' }}>
-                    <p style={{ color: '#ff6b6b', fontSize: 13, margin: 0 }}>{error}</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <motion.button type="submit" disabled={loading} whileTap={{ scale: 0.98 }}
-                style={{ width: '100%', padding: '16px', background: loading ? '#111' : '#FFD700', border: loading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: loading ? '#444' : '#000', fontSize: 17, fontWeight: 900, cursor: loading ? 'default' : 'pointer', marginBottom: loading ? 28 : 0 }}>
-                {loading ? 'Building your brand strategy…' : 'Build My Brand Strategy →'}
-              </motion.button>
-            </form>
-
-            {loading && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <SkeletonBlock height={60} />
-                <SkeletonBlock height={96} />
-                <SkeletonBlock height={80} />
-                <SkeletonBlock height={80} />
-                <SkeletonBlock height={72} />
-              </motion.div>
-            )}
-
-            {!loading && (
-              <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginTop: 24 }}>
-                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>WHAT YOU'LL GET</p>
-                {['Your unique brand identity', 'What makes you different from everyone else', 'A concrete 30-day US growth plan', 'Format fatigue warnings — what NOT to do', 'Profile optimization tips', 'Filming environment tips'].map(item => (
-                  <div key={item} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-                    <span style={{ color: '#FFD700', fontSize: 12, flexShrink: 0 }}>✓</span>
-                    <span style={{ color: '#555', fontSize: 13 }}>{item}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+        {isLoading && (
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 18, padding: '20px', marginBottom: 16, textAlign: 'center' }}>
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                style={{ width: 32, height: 32, border: '3px solid #1a1a1a', borderTopColor: '#FFD700', borderRadius: '50%', margin: '0 auto 16px' }} />
+              <p style={{ color: '#555', fontSize: 14, margin: 0 }}>Building your brand strategy…</p>
+            </div>
+            <SkeletonBlock height={96} />
+            <SkeletonBlock height={80} />
+            <SkeletonBlock height={80} />
+            <SkeletonBlock height={72} />
           </motion.div>
-        ) : (
+        )}
+
+        {!isLoading && data && (
           <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
             {/* Brand identity card */}
@@ -172,10 +192,6 @@ export default function StrategyPage() {
             <Section icon="🎥" label="FILMING ENVIRONMENT TIPS" content={data.filmingTips} />
             {data.estimatedTimeToResults && <Section icon="📅" label="REALISTIC TIMELINE" content={data.estimatedTimeToResults} />}
 
-            <motion.button onClick={() => setData(null)} whileTap={{ scale: 0.98 }}
-              style={{ width: '100%', padding: '14px', background: 'transparent', border: '1px solid #1a1a1a', borderRadius: 50, color: '#444', fontSize: 15, cursor: 'pointer', marginTop: 8 }}>
-              Build for Another Account
-            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>

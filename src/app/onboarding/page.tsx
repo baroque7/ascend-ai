@@ -10,49 +10,127 @@ const NICHES = [
   'Comedy & Entertainment', 'Tech & Gaming',
 ]
 
-const LANGUAGES = ['English', 'Spanish', 'French', 'Portuguese', 'Arabic', 'Italian', 'German', 'Turkish', 'Hindi', 'Indonesian']
-
-const steps = [
-  { id: 'welcome', emoji: '👋', title: 'Welcome to GramScaling', desc: "Let's personalize your brand strategy in 3 quick steps." },
-  { id: 'niche', emoji: '🎯', title: "What's your content niche?", desc: "We'll use this to generate ideas and strategy tailored to you." },
-  { id: 'language', emoji: '🌍', title: 'What language do you speak?', desc: "Your scripts will be written in your language. Captions always in English." },
-  { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "We'll use this to personalize your US growth strategy." },
-  { id: 'done', emoji: '🚀', title: "You're all set!", desc: 'Your personalized dashboard is ready.' },
+const LANGUAGES = [
+  'English', 'Spanish', 'French', 'Portuguese', 'Arabic',
+  'Italian', 'German', 'Turkish', 'Hindi', 'Indonesian',
 ]
 
+const SETUP_STEPS = [
+  { id: 'welcome', emoji: '👋', title: 'Welcome to GramScaling', desc: "Let's personalize your brand strategy in 3 quick steps." },
+  { id: 'niche', emoji: '🎯', title: "What's your content niche?", desc: "We'll generate ideas and strategy tailored to your niche." },
+  { id: 'language', emoji: '🌍', title: 'What language do you speak?', desc: "Scripts in your language. Captions always in English." },
+  { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "Enter it once — we'll never ask again." },
+  { id: 'processing', emoji: '⚡', title: 'Setting up your profile', desc: "Analyzing your niche and building your strategy…" },
+]
+
+type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'analyzing' | 'done' | 'error'
+
 export default function Onboarding() {
-  const { supabase } = useAuth()
+  const { user, supabase } = useAuth()
+  const router = useRouter()
+
   const [step, setStep] = useState(0)
   const [niche, setNiche] = useState('')
   const [customNiche, setCustomNiche] = useState('')
   const [language, setLanguage] = useState('English')
   const [handle, setHandle] = useState('')
-  const [saving, setSaving] = useState(false)
-  const router = useRouter()
+  const [status, setStatus] = useState<ProcessStatus>('idle')
+  const [statusMsg, setStatusMsg] = useState('')
 
-  const current = steps[step]
+  const current = SETUP_STEPS[step]
+  const resolvedNiche = niche || customNiche.trim()
 
   const canNext =
     step === 0 ? true :
-    step === 1 ? (niche !== '' || customNiche.trim() !== '') :
+    step === 1 ? resolvedNiche !== '' :
     step === 2 ? language !== '' :
-    step === 3 ? true : true
+    step === 3 ? true : false
 
   async function handleNext() {
-    if (step < steps.length - 1) {
-      setStep(s => s + 1)
-      return
+    if (step < 3) { setStep(s => s + 1); return }
+    // Step 3 (handle) → move to processing and run pipeline
+    setStep(4)
+    await runSetupPipeline()
+  }
+
+  async function runSetupPipeline() {
+    const cleanHandle = handle.replace('@', '').trim()
+
+    try {
+      // 1. Save to user_metadata + profiles table
+      setStatus('saving')
+      setStatusMsg('Saving your profile…')
+
+      await supabase.auth.updateUser({
+        data: { niche: resolvedNiche, language, instagram_handle: cleanHandle },
+      })
+
+      if (user) {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          instagram_handle: cleanHandle,
+          niche: resolvedNiche,
+          language,
+        })
+      }
+
+      // 2. Scrape / profile analysis
+      setStatus('scraping')
+      setStatusMsg('Analyzing your Instagram profile…')
+
+      let scrapeData: Record<string, any> = {}
+      try {
+        const scrapeRes = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanHandle }),
+        })
+        const scrapeJson = await scrapeRes.json()
+        if (scrapeJson.profile && !scrapeJson.error) {
+          scrapeData = scrapeJson.profile
+          if (user) {
+            await supabase.from('profiles').update({
+              scrape_data: scrapeData,
+              scraped_at: new Date().toISOString(),
+            }).eq('id', user.id)
+          }
+        }
+      } catch {}
+
+      // 3. Full analysis
+      setStatus('analyzing')
+      setStatusMsg('Building your brand analysis…')
+
+      try {
+        const analyzeRes = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: cleanHandle,
+            niche: resolvedNiche,
+            language,
+            scrapeData,
+          }),
+        })
+        const analyzeJson = await analyzeRes.json()
+        if (!analyzeJson.error && user) {
+          await supabase.from('profiles').update({
+            analysis_data: analyzeJson,
+            analyzed_at: new Date().toISOString(),
+          }).eq('id', user.id)
+        }
+      } catch {}
+
+      setStatus('done')
+      setStatusMsg('All done! Taking you to your dashboard…')
+
+      setTimeout(() => router.push('/dashboard'), 1200)
+
+    } catch {
+      setStatus('error')
+      setStatusMsg('Setup incomplete — you can finish in Settings.')
+      setTimeout(() => router.push('/dashboard'), 2500)
     }
-    setSaving(true)
-    await supabase.auth.updateUser({
-      data: {
-        niche: niche || customNiche.trim(),
-        language,
-        instagram_handle: handle.replace('@', '').trim(),
-      },
-    })
-    setSaving(false)
-    router.push('/dashboard')
   }
 
   return (
@@ -61,57 +139,52 @@ export default function Onboarding() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18 }}>GramScaling</span>
-        <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>Skip</button>
+        {step < 4 && (
+          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            Skip
+          </button>
+        )}
       </div>
 
-      {/* Progress */}
-      <div style={{ height: 3, background: '#111', borderRadius: 2, marginBottom: 36, overflow: 'hidden' }}>
-        <motion.div
-          style={{ height: '100%', background: '#FFD700', borderRadius: 2 }}
-          animate={{ width: `${((step + 1) / steps.length) * 100}%` }}
-          transition={{ duration: 0.4 }}
-        />
-      </div>
+      {/* Progress bar (hidden during processing) */}
+      {step < 4 && (
+        <div style={{ height: 3, background: '#111', borderRadius: 2, marginBottom: 36, overflow: 'hidden' }}>
+          <motion.div
+            style={{ height: '100%', background: '#FFD700', borderRadius: 2 }}
+            animate={{ width: `${((step + 1) / 4) * 100}%` }}
+            transition={{ duration: 0.4 }}
+          />
+        </div>
+      )}
 
       {/* Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: step === 4 ? 0 : 30 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -30 }}
+            exit={{ opacity: 0, x: step === 4 ? 0 : -30 }}
             transition={{ duration: 0.28 }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           >
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            {/* Step header */}
+            <div style={{ textAlign: 'center', marginBottom: step === 4 ? 48 : 32 }}>
               <div style={{ fontSize: 52, marginBottom: 16 }}>{current.emoji}</div>
               <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, marginBottom: 10, letterSpacing: '-0.5px', lineHeight: 1.2 }}>{current.title}</h1>
               <p style={{ color: '#555', fontSize: 14, lineHeight: 1.6 }}>{current.desc}</p>
             </div>
 
-            {/* Niche step */}
+            {/* NICHE step */}
             {step === 1 && (
               <div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
                   {NICHES.map(n => {
                     const active = niche === n
                     return (
-                      <motion.button
-                        key={n}
-                        onClick={() => { setNiche(n); setCustomNiche('') }}
+                      <motion.button key={n} onClick={() => { setNiche(n); setCustomNiche('') }}
                         whileTap={{ scale: 0.97 }}
-                        style={{
-                          padding: '13px 10px',
-                          background: active ? 'rgba(255,215,0,0.08)' : '#0a0a0a',
-                          border: `1px solid ${active ? 'rgba(255,215,0,0.4)' : '#1a1a1a'}`,
-                          borderRadius: 12,
-                          color: active ? '#FFD700' : '#666',
-                          fontSize: 12,
-                          fontWeight: active ? 700 : 400,
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                        }}
-                      >
+                        style={{ padding: '13px 10px', background: active ? 'rgba(255,215,0,0.08)' : '#0a0a0a', border: `1px solid ${active ? 'rgba(255,215,0,0.4)' : '#1a1a1a'}`, borderRadius: 12, color: active ? '#FFD700' : '#666', fontSize: 12, fontWeight: active ? 700 : 400, cursor: 'pointer', textAlign: 'center' }}>
                         {n}
                       </motion.button>
                     )
@@ -127,31 +200,14 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* Language step */}
+            {/* LANGUAGE step */}
             {step === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {LANGUAGES.map(l => {
                   const active = language === l
                   return (
-                    <motion.button
-                      key={l}
-                      onClick={() => setLanguage(l)}
-                      whileTap={{ scale: 0.98 }}
-                      style={{
-                        padding: '14px 18px',
-                        background: active ? 'rgba(255,215,0,0.08)' : '#0a0a0a',
-                        border: `1px solid ${active ? 'rgba(255,215,0,0.4)' : '#1a1a1a'}`,
-                        borderRadius: 12,
-                        color: active ? '#FFD700' : '#666',
-                        fontSize: 14,
-                        fontWeight: active ? 700 : 400,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
+                    <motion.button key={l} onClick={() => setLanguage(l)} whileTap={{ scale: 0.98 }}
+                      style={{ padding: '14px 18px', background: active ? 'rgba(255,215,0,0.08)' : '#0a0a0a', border: `1px solid ${active ? 'rgba(255,215,0,0.4)' : '#1a1a1a'}`, borderRadius: 12, color: active ? '#FFD700' : '#666', fontSize: 14, fontWeight: active ? 700 : 400, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       {l}
                       {active && <span style={{ fontSize: 16 }}>✓</span>}
                     </motion.button>
@@ -160,7 +216,7 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* Handle step */}
+            {/* HANDLE step */}
             {step === 3 && (
               <div style={{ marginBottom: 24 }}>
                 <input
@@ -168,54 +224,91 @@ export default function Onboarding() {
                   placeholder="@yourhandle"
                   value={handle}
                   onChange={e => setHandle(e.target.value)}
-                  style={{ width: '100%', padding: '15px 16px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 16, boxSizing: 'border-box', outline: 'none', textAlign: 'center' }}
+                  style={{ width: '100%', padding: '16px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 18, boxSizing: 'border-box', outline: 'none', textAlign: 'center', letterSpacing: '0.5px' }}
                   autoCapitalize="none"
+                  autoCorrect="off"
                 />
-                <p style={{ color: '#333', fontSize: 13, textAlign: 'center', marginTop: 10 }}>You can change this later in Settings</p>
+                <p style={{ color: '#333', fontSize: 13, textAlign: 'center', marginTop: 10 }}>You can update this anytime in Settings</p>
               </div>
             )}
 
-            {/* Done step */}
+            {/* PROCESSING step */}
             {step === 4 && (
-              <div style={{ background: 'rgba(255,215,0,0.04)', border: '1px solid rgba(255,215,0,0.1)', borderRadius: 16, padding: '24px', marginBottom: 24 }}>
-                {[
-                  ['💡', 'Daily Content Ideas', 'Scripts in your language, captions in English'],
-                  ['🎯', 'US Brand Strategy', 'Your unique identity and 30-day growth plan'],
-                  ['📊', 'Profile Score', 'Track your brand strength over time'],
-                ].map(([icon, title, desc]) => (
-                  <div key={title} style={{ display: 'flex', gap: 14, marginBottom: 18 }}>
-                    <span style={{ fontSize: 22 }}>{icon}</span>
-                    <div>
-                      <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 2px' }}>{title}</p>
-                      <p style={{ color: '#555', fontSize: 13, margin: 0 }}>{desc}</p>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+                {status !== 'done' && status !== 'error' && (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                    style={{ width: 52, height: 52, border: '3px solid #1a1a1a', borderTopColor: '#FFD700', borderRadius: '50%', marginBottom: 28 }}
+                  />
+                )}
+                {status === 'done' && (
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    style={{ fontSize: 56, marginBottom: 24 }}>
+                    🎉
+                  </motion.div>
+                )}
+                {status === 'error' && <div style={{ fontSize: 48, marginBottom: 24 }}>⚠️</div>}
+
+                <motion.p
+                  key={statusMsg}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ color: status === 'error' ? '#ff8c42' : status === 'done' ? '#FFD700' : '#ccc', fontSize: 16, fontWeight: 600, textAlign: 'center', lineHeight: 1.5 }}
+                >
+                  {statusMsg}
+                </motion.p>
+
+                <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  {[
+                    { key: 'saving', label: 'Profile saved' },
+                    { key: 'scraping', label: 'Instagram analyzed' },
+                    { key: 'analyzing', label: 'Brand data ready' },
+                  ].map((item, i) => {
+                    const steps: ProcessStatus[] = ['saving', 'scraping', 'analyzing', 'done']
+                    const idx = steps.indexOf(item.key as ProcessStatus)
+                    const currentIdx = steps.indexOf(status)
+                    const isDone = currentIdx > idx || status === 'done'
+                    const isActive = steps[currentIdx] === item.key
+                    return (
+                      <motion.div key={item.key}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: isDone || isActive ? 1 : 0.3, x: 0 }}
+                        transition={{ delay: i * 0.1 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: isDone ? 'rgba(255,215,0,0.04)' : '#0a0a0a', border: `1px solid ${isDone ? 'rgba(255,215,0,0.15)' : '#111'}`, borderRadius: 10 }}>
+                        <span style={{ fontSize: 16 }}>{isDone ? '✓' : isActive ? '⟳' : '○'}</span>
+                        <span style={{ color: isDone ? '#FFD700' : isActive ? '#fff' : '#333', fontSize: 13, fontWeight: isDone ? 700 : 400 }}>{item.label}</span>
+                      </motion.div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Navigation */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-        {step > 0 && (
-          <button
-            onClick={() => setStep(s => s - 1)}
-            style={{ padding: '15px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 50, color: '#666', fontSize: 20, cursor: 'pointer', width: 52, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      {/* Navigation — hidden during processing */}
+      {step < 4 && (
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          {step > 0 && (
+            <button
+              onClick={() => setStep(s => s - 1)}
+              style={{ padding: '15px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 50, color: '#666', fontSize: 20, cursor: 'pointer', width: 52, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ←
+            </button>
+          )}
+          <motion.button
+            onClick={handleNext}
+            disabled={!canNext}
+            whileTap={{ scale: 0.98 }}
+            style={{ flex: 1, padding: '16px', background: canNext ? '#FFD700' : '#1a1a1a', border: 'none', borderRadius: 50, color: canNext ? '#000' : '#333', fontSize: 17, fontWeight: 900, cursor: canNext ? 'pointer' : 'default' }}
           >
-            ←
-          </button>
-        )}
-        <motion.button
-          onClick={handleNext}
-          disabled={!canNext || saving}
-          whileTap={{ scale: 0.98 }}
-          style={{ flex: 1, padding: '16px', background: canNext && !saving ? '#FFD700' : '#1a1a1a', border: 'none', borderRadius: 50, color: canNext && !saving ? '#000' : '#333', fontSize: 17, fontWeight: 900, cursor: canNext && !saving ? 'pointer' : 'default' }}
-        >
-          {saving ? 'Setting up…' : step === steps.length - 1 ? 'Go to Dashboard →' : 'Continue →'}
-        </motion.button>
-      </div>
+            {step === 3 ? 'Set Up My Dashboard →' : 'Continue →'}
+          </motion.button>
+        </div>
+      )}
     </div>
   )
 }

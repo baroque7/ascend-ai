@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useProfile } from '@/hooks/useProfile'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Idea {
@@ -33,20 +33,22 @@ function SkeletonCard() {
 }
 
 export default function TodayPage() {
-  const { user } = useAuth()
+  const { profile, loading: profileLoading } = useProfile()
   const [ideas, setIdeas] = useState<Idea[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
-  const niche = user?.user_metadata?.niche || ''
-  const language = user?.user_metadata?.language || 'English'
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   async function load() {
-    setLoading(true); setError(''); setExpanded(null)
+    setLoading(true)
+    setError('')
+    setExpanded(null)
     try {
+      const niche = profile?.niche || ''
+      const language = profile?.language || 'English'
       const params = new URLSearchParams()
       if (niche) params.set('niche', niche)
       if (language) params.set('language', language)
@@ -60,13 +62,18 @@ export default function TodayPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    if (!profileLoading) load()
+  }, [profileLoading, profile?.niche, profile?.language]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function copy(text: string, key: string) {
     navigator.clipboard.writeText(text).then(() => {
-      setCopied(key); setTimeout(() => setCopied(null), 2000)
+      setCopied(key)
+      setTimeout(() => setCopied(null), 2000)
     })
   }
+
+  const isLoading = profileLoading || loading
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
@@ -77,7 +84,7 @@ export default function TodayPage() {
           <p style={{ color: '#333', fontSize: 12, margin: '0 0 4px' }}>{today}</p>
           <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>
             Today's Content
-            {!loading && ideas.length > 0 && (
+            {!isLoading && ideas.length > 0 && (
               <motion.span key={ideas.length} initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 style={{ background: '#FFD700', color: '#000', fontWeight: 900, fontSize: 11, padding: '2px 7px', borderRadius: 50, marginLeft: 8 }}>
                 {ideas.length}
@@ -85,38 +92,38 @@ export default function TodayPage() {
             )}
           </h1>
         </div>
-        <motion.button onClick={load} disabled={loading} whileTap={{ scale: 0.9 }}
-          style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 14px', color: loading ? '#333' : '#FFD700', fontSize: 13, fontWeight: 700, cursor: loading ? 'default' : 'pointer' }}>
-          {loading ? '…' : '↻ Refresh'}
+        <motion.button onClick={load} disabled={isLoading} whileTap={{ scale: 0.9 }}
+          style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 14px', color: isLoading ? '#333' : '#FFD700', fontSize: 13, fontWeight: 700, cursor: isLoading ? 'default' : 'pointer' }}>
+          {isLoading ? '…' : '↻ Refresh'}
         </motion.button>
       </div>
 
-      {niche && (
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ color: '#333', fontSize: 12, marginBottom: 24, marginTop: 4 }}>
-          Niche: <span style={{ color: '#FFD700' }}>{niche}</span>
+      {profile?.niche && (
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          style={{ color: '#333', fontSize: 12, marginBottom: 24, marginTop: 4 }}>
+          Niche: <span style={{ color: '#FFD700' }}>{profile.niche}</span>
         </motion.p>
       )}
-      {!niche && <div style={{ marginBottom: 24 }} />}
+      {!profile?.niche && !isLoading && <div style={{ marginBottom: 24 }} />}
 
       {error && (
-        <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: '14px', marginBottom: 20, textAlign: 'center' }}>
+        <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
           <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>{error}</p>
         </div>
       )}
 
-      {loading && [0, 1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+      {isLoading && [0, 1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
 
       <AnimatePresence>
-        {!loading && ideas.map((idea, i) => {
+        {!isLoading && ideas.map((idea, i) => {
           const isOpen = expanded === i
           return (
             <motion.div key={i}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
               style={{ background: '#0a0a0a', border: `1px solid ${isOpen ? 'rgba(255,215,0,0.2)' : '#1a1a1a'}`, borderRadius: 18, marginBottom: 14, overflow: 'hidden' }}>
 
-              {/* Thumbnail */}
               <button onClick={() => setExpanded(isOpen ? null : i)} style={{ width: '100%', border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ background: THUMBNAIL_GRADIENTS[i % 5], height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '16px' }}>
+                <div style={{ background: THUMBNAIL_GRADIENTS[i % 5], height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: 16 }}>
                   <div style={{ fontSize: 42, marginBottom: 12 }}>{THUMBNAIL_ICONS[i % 5]}</div>
                   <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, textAlign: 'center', margin: 0, lineHeight: 1.3, letterSpacing: '-0.3px', maxWidth: '85%' }}>{idea.Title}</p>
                   <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,215,0,0.15)', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 6, padding: '3px 8px' }}>
@@ -128,20 +135,17 @@ export default function TodayPage() {
                   </div>
                 </div>
 
-                {/* Preview row */}
                 <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <p style={{ color: '#555', fontSize: 12, margin: 0, flex: 1, paddingRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.Caption}</p>
                   <motion.span animate={{ rotate: isOpen ? 180 : 0 }} style={{ color: '#333', fontSize: 18, flexShrink: 0 }}>↓</motion.span>
                 </div>
               </button>
 
-              {/* Expanded content */}
               <AnimatePresence>
                 {isOpen && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} style={{ overflow: 'hidden' }}>
                     <div style={{ borderTop: '1px solid #1a1a1a', padding: '20px 18px' }}>
 
-                      {/* Script */}
                       <div style={{ marginBottom: 20 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>📹 SCRIPT</span>
@@ -153,7 +157,6 @@ export default function TodayPage() {
                         <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{idea.Script}</p>
                       </div>
 
-                      {/* Caption */}
                       <div style={{ marginBottom: 20 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>✏️ CAPTION</span>
@@ -165,7 +168,6 @@ export default function TodayPage() {
                         <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{idea.Caption}</p>
                       </div>
 
-                      {/* Hashtags */}
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>#️⃣ HASHTAGS</span>
@@ -176,6 +178,7 @@ export default function TodayPage() {
                         </div>
                         <p style={{ color: '#666', fontSize: 13, lineHeight: 1.8, margin: 0 }}>{idea.Hashtags}</p>
                       </div>
+
                     </div>
                   </motion.div>
                 )}

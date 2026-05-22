@@ -9,30 +9,11 @@ export async function POST(request: NextRequest) {
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 })
     }
-
     if (!GEMINI_KEY) {
       return NextResponse.json({ error: 'AI service not configured.' }, { status: 500 })
     }
 
-    const cleanUsername = username.replace('@', '').trim().toLowerCase()
-
-    // Use Gemini to generate realistic profile insights based on username patterns
-    const prompt = `You are a social media analyst. Based on the Instagram username "@${cleanUsername}", generate a realistic profile analysis for US market positioning.
-
-Return ONLY this JSON with no extra text:
-{
-  "username": "${cleanUsername}",
-  "estimatedNiche": "detected content niche based on username patterns",
-  "estimatedFollowers": "estimated follower range e.g. 1K-10K",
-  "contentStyle": "description of likely content style",
-  "usMarketFit": "high/medium/low",
-  "usMarketScore": 75,
-  "topContentTypes": ["type1", "type2", "type3"],
-  "suggestedHashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"],
-  "bestPostingTimes": "best EST posting times for US audiences",
-  "growthOpportunities": "2-3 specific growth opportunities for US market",
-  "competitorNiches": ["niche1", "niche2"]
-}`
+    const clean = username.replace('@', '').trim().toLowerCase()
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
@@ -40,7 +21,9 @@ Return ONLY this JSON with no extra text:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: `You are a social media analyst. Based on the Instagram username "@${clean}", generate a realistic profile analysis for US market positioning.
+
+Return ONLY valid JSON matching this schema exactly:` }] }],
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -56,9 +39,9 @@ Return ONLY this JSON with no extra text:
                 suggestedHashtags: { type: 'ARRAY', items: { type: 'STRING' } },
                 bestPostingTimes: { type: 'STRING' },
                 growthOpportunities: { type: 'STRING' },
-                competitorNiches: { type: 'ARRAY', items: { type: 'STRING' } },
+                audiencePersona: { type: 'STRING' },
               },
-              required: ['username', 'estimatedNiche', 'usMarketScore', 'growthOpportunities'],
+              required: ['username', 'estimatedNiche', 'usMarketScore', 'growthOpportunities', 'bestPostingTimes'],
             },
             temperature: 0.6,
             maxOutputTokens: 1500,
@@ -68,21 +51,16 @@ Return ONLY this JSON with no extra text:
     )
 
     const data = await response.json()
-
     if (!response.ok) {
-      return NextResponse.json({ error: 'Profile analysis failed. Please try again.' }, { status: response.status })
+      return NextResponse.json({ error: 'Profile analysis failed.' }, { status: response.status })
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!text) {
-      return NextResponse.json({ error: 'No analysis returned. Try again.' }, { status: 500 })
-    }
+    if (!text) return NextResponse.json({ error: 'No analysis returned.' }, { status: 500 })
 
-    const parsed = JSON.parse(text.trim())
-    return NextResponse.json({ success: true, profile: parsed })
-
+    return NextResponse.json({ success: true, profile: JSON.parse(text.trim()) })
   } catch (error: any) {
     console.error('Scrape error:', error)
-    return NextResponse.json({ error: `Profile lookup failed: ${error.message || 'Unknown error'}` }, { status: 500 })
+    return NextResponse.json({ error: `Profile lookup failed: ${error.message}` }, { status: 500 })
   }
 }
