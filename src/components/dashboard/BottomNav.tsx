@@ -4,9 +4,8 @@ import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 
 const tabs = [
-  { href: '/dashboard/today', icon: '📅', label: 'Today' },
-  { href: '/dashboard/analyze', icon: '🔍', label: 'Analyze' },
   { href: '/dashboard', icon: '🏠', label: 'Home', exact: true },
+  { href: '/dashboard/today', icon: '📅', label: 'Today' },
   { href: '/dashboard/strategy', icon: '🎯', label: 'Strategy' },
   { href: '/dashboard/settings', icon: '⚙️', label: 'Settings' },
 ]
@@ -28,7 +27,7 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textDecoration: 'none', padding: '4px 10px', position: 'relative', minWidth: 56 }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textDecoration: 'none', padding: '4px 12px', position: 'relative', minWidth: 64 }}
             >
               {active && (
                 <motion.div
@@ -37,7 +36,7 @@ export default function BottomNav() {
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
               )}
-              <span style={{ fontSize: 22, marginBottom: 3, filter: active ? 'none' : 'grayscale(100%) opacity(40%)' }}>
+              <span style={{ fontSize: 22, marginBottom: 3, filter: active ? 'none' : 'grayscale(100%) opacity(35%)' }}>
                 {tab.icon}
               </span>
               <span style={{ color: active ? '#FFD700' : '#2a2a2a', fontSize: 10, fontWeight: active ? 700 : 400, letterSpacing: 0.3 }}>

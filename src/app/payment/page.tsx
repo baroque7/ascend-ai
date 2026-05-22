@@ -1,37 +1,148 @@
- 'use client'
+'use client'
+import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
-import Logo from '@/components/layout/Logo'
+import { motion, AnimatePresence } from 'framer-motion'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function Payment() {
+  const { user } = useAuth()
+  const [promo, setPromo] = useState('')
+  const [promoError, setPromoError] = useState('')
+  const [promoLoading, setPromoLoading] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
+
+  async function handlePromo(e: React.SyntheticEvent) {
+    e.preventDefault()
+    if (!promo.trim()) { setPromoError('Enter a promo code'); return }
+    setPromoLoading(true); setPromoError('')
+    try {
+      const res = await fetch('/api/redeem-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promo.trim().toUpperCase() }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Invalid promo code')
+
+      // Valid — update user metadata client-side with their active session
+      await supabase.auth.updateUser({
+        data: { subscription_status: 'active', is_promo: true, promo_code: 'MIHAWK41' },
+      })
+      window.location.href = '/onboarding'
+    } catch (err: any) {
+      setPromoError(err.message || 'Invalid promo code')
+    }
+    setPromoLoading(false)
+  }
+
+  async function handleCheckout(e: React.SyntheticEvent) {
+    e.preventDefault()
+    if (!user) { window.location.href = '/signup'; return }
+    setCheckoutLoading(true); setCheckoutError('')
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, userId: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Checkout failed')
+      if (data.url) window.location.href = data.url
+    } catch (err: any) {
+      setCheckoutError(err.message || 'Could not start checkout. Please try again.')
+    }
+    setCheckoutLoading(false)
+  }
+
+  const features = [
+    'Your unique brand identity analyzed',
+    'Daily scripts written in your language',
+    'US-targeted hashtag strategy',
+    'Best posting windows for US reach',
+    'Follower growth dashboard',
+    'Priority email support',
+  ]
+
   return (
-    <div style={{background:'#000',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
-      <div style={{width:'100%',maxWidth:'400px',textAlign:'center'}}>
-        <h1 style={{color:'#FFD700',fontSize:'28px',fontWeight:'bold',marginBottom:'8px'}}>Complete Your Order</h1>
-        <p style={{color:'#999',fontSize:'15px',marginBottom:'32px'}}>You are one step away from your US TikTok account</p>
-        
-        <div style={{background:'#111',border:'1px solid #FFD700',borderRadius:'12px',padding:'24px',marginBottom:'32px'}}>
-          <h2 style={{color:'#fff',fontSize:'20px',fontWeight:'bold',marginBottom:'8px'}}>
-            <Logo size={18} />
-          </h2>
-          <p style={{color:'#FFD700',fontSize:'36px',fontWeight:'bold',marginBottom:'4px'}}>$89.99</p>
-          <p style={{color:'#666',fontSize:'14px',marginBottom:'24px'}}>/month</p>
-          <div style={{textAlign:'left'}}>
-            <p style={{color:'#999',fontSize:'14px',marginBottom:'8px'}}>✓ 1 US TikTok account created for you</p>
-            <p style={{color:'#999',fontSize:'14px',marginBottom:'8px'}}>✓ Daily AI content ideas</p>
-            <p style={{color:'#999',fontSize:'14px',marginBottom:'8px'}}>✓ Auto posting from US device</p>
-            <p style={{color:'#999',fontSize:'14px',marginBottom:'8px'}}>✓ Account management included</p>
+    <div style={{ background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        style={{ width: '100%', maxWidth: 400 }}
+      >
+        <Link href="/" style={{ display: 'block', textAlign: 'center', color: '#FFD700', fontWeight: 900, fontSize: 20, textDecoration: 'none', marginBottom: 36 }}>
+          GramScaling
+        </Link>
+
+        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Start Your Free Trial</h1>
+        <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>7 days free, then $69.99/month. Cancel anytime.</p>
+
+        <div style={{ background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 20, padding: '24px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <span style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>GramScaling Pro</span>
+            <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 20 }}>$69.99<span style={{ color: '#333', fontWeight: 400, fontSize: 13 }}>/mo</span></span>
           </div>
+          {features.map(f => (
+            <div key={f} style={{ display: 'flex', gap: 10, marginBottom: 9 }}>
+              <span style={{ color: '#FFD700', fontSize: 13, flexShrink: 0, marginTop: 1 }}>✓</span>
+              <span style={{ color: '#666', fontSize: 14 }}>{f}</span>
+            </div>
+          ))}
         </div>
 
-        <button style={{width:'100%',padding:'16px',background:'#FFD700',border:'none',borderRadius:'50px',color:'#000',fontSize:'18px',fontWeight:'bold',cursor:'pointer',marginBottom:'16px'}}
-          onClick={() => window.location.href = '/dashboard'}>
-          Pay Now
-        </button>
-        
-        <p style={{color:'#666',fontSize:'12px',marginBottom:'16px'}}>Secure payment — Cancel anytime</p>
-        
-        <Link href="/signup" style={{color:'#666',textDecoration:'none',fontSize:'14px'}}>← Back to signup</Link>
-      </div>
+        <AnimatePresence>
+          {checkoutError && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)', borderRadius: 10, padding: 12, marginBottom: 14, textAlign: 'center' }}>
+              <p style={{ color: '#ff6b6b', fontSize: 13, margin: 0 }}>{checkoutError}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button onClick={handleCheckout} disabled={checkoutLoading} whileTap={{ scale: 0.98 }}
+          style={{ width: '100%', padding: '17px', background: checkoutLoading ? '#111' : '#FFD700', border: checkoutLoading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: checkoutLoading ? '#444' : '#000', fontSize: 17, fontWeight: 900, cursor: checkoutLoading ? 'default' : 'pointer', marginBottom: 20, letterSpacing: '-0.2px' }}>
+          {checkoutLoading ? 'Redirecting to checkout…' : 'Pay with Card →'}
+        </motion.button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
+          <span style={{ color: '#333', fontSize: 12 }}>or use promo code</span>
+          <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
+        </div>
+
+        <form onSubmit={handlePromo}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="text" value={promo}
+              onChange={e => { setPromo(e.target.value.toUpperCase()); setPromoError('') }}
+              placeholder="PROMO CODE"
+              style={{ flex: 1, padding: '14px 16px', background: '#111', border: `1px solid ${promo ? 'rgba(255,215,0,0.3)' : '#1a1a1a'}`, borderRadius: 12, color: promo ? '#FFD700' : '#666', fontSize: 15, fontWeight: 700, outline: 'none', letterSpacing: 2 }} />
+            <motion.button type="submit" disabled={promoLoading} whileTap={{ scale: 0.96 }}
+              style={{ padding: '14px 20px', background: promo ? 'rgba(255,215,0,0.1)' : '#0a0a0a', border: `1px solid ${promo ? 'rgba(255,215,0,0.3)' : '#1a1a1a'}`, borderRadius: 12, color: promo ? '#FFD700' : '#333', fontSize: 14, fontWeight: 700, cursor: promoLoading ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
+              {promoLoading ? '…' : 'Apply'}
+            </motion.button>
+          </div>
+          <AnimatePresence>
+            {promoError && (
+              <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                style={{ color: '#ff6b6b', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                {promoError}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </form>
+
+        <p style={{ color: '#2a2a2a', fontSize: 12, textAlign: 'center', marginTop: 24, lineHeight: 1.5 }}>
+          Secure payment · Cancel anytime · No hidden fees
+        </p>
+      </motion.div>
     </div>
   )
 }
