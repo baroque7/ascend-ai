@@ -113,11 +113,13 @@ export async function POST(request: NextRequest) {
               console.log('[scrape] Sample post:', JSON.stringify(posts[0]).slice(0, 500))
             }
 
-            const totalEng = posts.reduce((s, p) => s + (p.like_count || 0) + (p.comment_count || 0), 0)
-            realEngagement = followerCount > 0 && posts.length > 0
-              ? parseFloat(((totalEng / posts.length / followerCount) * 100).toFixed(2))
+            // Engagement = (total likes + comments on last 12 posts) / (followers × 12) × 100
+            const last12 = posts.slice(0, 12)
+            const totalEng = last12.reduce((s, p) => s + (p.like_count || 0) + (p.comment_count || 0), 0)
+            realEngagement = followerCount > 0 && last12.length > 0
+              ? parseFloat(((totalEng / (followerCount * last12.length)) * 100).toFixed(2))
               : 0
-            console.log('[scrape] Engagement rate calculated:', realEngagement)
+            console.log('[scrape] Engagement rate — totalEng:', totalEng, '| posts used:', last12.length, '| followers:', followerCount, '| rate:', realEngagement)
 
             scrapedData.engagement_rate = realEngagement
             scrapedData.recent_posts = posts.map(p => ({
@@ -174,36 +176,46 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are an elite Instagram growth strategist who has helped hundreds of models and creators build audiences of real American men. You have deep knowledge of what content American men engage with, what makes a creator stand out, and how to shift a Hispanic audience to a broader American audience.
-Analyse this Instagram profile data and return ONLY a valid JSON object:
+              text: `You are an elite Instagram growth strategist. Analyse this Instagram profile and return a JSON object.
+CRITICAL RULES:
+- NEVER use she/her/the creator. Always use "you/your" when writing advice.
+- Use ONLY the real data provided. Do NOT hallucinate or invent followers, engagement, or post metrics.
+
 Profile data: ${JSON.stringify(optimizedForGemini)}
-IMPORTANT: Use the real followerCount (${optimizedForGemini.followerCount}), engagementRate (${optimizedForGemini.engagementRate}%), and recentPosts data provided. Do NOT invent or hallucinate metrics.
+
+BRAND SCORE CALCULATION — use these exact weights, total out of 100:
+Follower tier (50 pts max): 0-1k=5, 1k-10k=15, 10k-50k=30, 50k-100k=40, 100k-500k=50, 500k+=55
+Engagement quality (25 pts max): below 0.5%=5, 0.5-1%=12, 1-3%=18, 3-5%=22, 5%+=25
+Profile completeness/bio quality (15 pts max): strong bio with personality=15, basic bio=8, empty=2
+Content consistency (10 pts max): posts regularly with consistent style=10, irregular=5, sporadic=2
+A ${optimizedForGemini.followerCount >= 100000 ? '100k+' : optimizedForGemini.followerCount >= 50000 ? '50k+' : optimizedForGemini.followerCount >= 10000 ? '10k+' : 'small'} account MUST score at least ${optimizedForGemini.followerCount >= 100000 ? 50 : optimizedForGemini.followerCount >= 50000 ? 40 : optimizedForGemini.followerCount >= 10000 ? 30 : 15} from followers alone.
+
 Return exactly this JSON:
 {
-"brandScore": number between 0-100 based on profile completeness engagement rate content consistency US appeal potential,
-"niche": "their specific niche be very specific e.g. Latina Fitness Model not just Fitness",
-"engagementRate": ${optimizedForGemini.engagementRate > 0 ? optimizedForGemini.engagementRate : 'estimate from post data'},
-"audienceType": "describe their current audience demographic honestly",
-"isHispanicAudience": true or false,
-"brandIdentity": "2-3 sentences describing their unique brand identity",
-"brandPersonality": "their specific personality type e.g. The Girl Next Door, The Baddie, The Mysterious One",
+"brandScore": calculated score using the weights above — a ${optimizedForGemini.followerCount} follower account starts at the follower tier score minimum,
+"niche": "very specific niche e.g. Latina Fitness Model not just Fitness — based on bio and post captions",
+"engagementRate": ${optimizedForGemini.engagementRate > 0 ? optimizedForGemini.engagementRate : 'estimate from post likes/comments vs followers'},
+"audienceType": "honest description of current audience demographic",
+"isHispanicAudience": true or false based on bio language and caption language,
+"brandIdentity": "2-3 sentences about unique brand identity — use YOU/YOUR not she/her",
+"brandPersonality": "specific personality type e.g. The Girl Next Door, The Baddie, The Mysterious One",
 "contentPillars": ["pillar1", "pillar2", "pillar3"],
-"whatMakesThemUnique": "one specific thing about them no other model has",
-"currentProblems": ["problem1", "problem2", "problem3"],
+"whatMakesThemUnique": "one specific differentiator — write as: Your unique angle is...",
+"currentProblems": ["problem using you/your language", "problem2", "problem3"],
 "profileScore": number 0-100,
-"profileAuthenticityIssues": "does their bio sound like a real person or a managed page",
-"postingFrequency": "how often they post based on post data",
+"profileAuthenticityIssues": "bio authenticity assessment — use you/your",
+"postingFrequency": "frequency based on timestamps in post data",
 "bestPostingTimes": ["time1 EST", "time2 EST", "time3 EST"],
-"topPerformingContentType": "what type of content gets the most engagement",
+"topPerformingContentType": "content type with highest likes+comments ratio",
 "formatFatigue": true or false,
-"formatFatigueWarning": "specific warning if overusing a format",
-"usGrowthStrategy": "4-5 specific actionable strategies to grow US audience",
-"hispanicToUSShift": "specific strategy to shift audience if applicable",
-"filmingEnvironmentTips": "specific tips about filming environment backgrounds outfits lighting",
-"hashtagStrategy": "20 specific hashtags for US audiences all in English",
+"formatFatigueWarning": "warning using you/your if overusing a format",
+"usGrowthStrategy": "4-5 actionable strategies using you/your — no she/her",
+"hispanicToUSShift": "audience shift strategy using you/your",
+"filmingEnvironmentTips": "filming tips using you/your",
+"hashtagStrategy": "20 specific English hashtags for US audiences",
 "contentVariations": ["variation1", "variation2", "variation3", "variation4", "variation5"],
-"weeklyPlan": "specific day by day content plan for this week",
-"bioRewrite": "rewrite their bio to sound like a real American person"
+"weeklyPlan": "day by day plan using you/your — Mon: post X, Tue: post Y format",
+"bioRewrite": "rewrite bio in first person as if the creator is writing it themselves"
 }`,
             }],
           }],

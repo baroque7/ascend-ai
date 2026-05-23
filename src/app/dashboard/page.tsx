@@ -56,7 +56,7 @@ function ScoreRing({ score }: { score: number }) {
 function formatFollowers(n: number | undefined | null): string {
   if (n == null) return '—'
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return n.toString()
 }
 
@@ -69,13 +69,11 @@ export default function Home() {
   const { user } = useAuth()
   const { profile, loading } = useProfile()
 
-  // Always prefer Instagram username — it's real identity, not the signup form name
-  const instagramHandle = profile?.instagram_username
-  const displayName = loading
-    ? '…'
-    : instagramHandle
-      ? instagramHandle
-      : (user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there')
+  // Greeting name: HikerAPI full_name (real Instagram name) → 'Creator'
+  const hikerFullName = (user?.user_metadata?.hiker_full_name as string | undefined)
+    || (profile?.raw_scraped_data as any)?.full_name
+    || ''
+  const displayName = loading ? '…' : (hikerFullName || 'Creator')
 
   const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
@@ -88,10 +86,9 @@ export default function Home() {
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
 
-  // Avatar: first letter of instagram handle if available
-  const avatarChar = instagramHandle
-    ? instagramHandle[0].toUpperCase()
-    : (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || '?').toUpperCase()
+  // Avatar: first letter of HikerAPI name → instagram handle → email
+  const instagramHandle = profile?.instagram_username
+  const avatarChar = (hikerFullName?.[0] || instagramHandle?.[0] || user?.email?.[0] || '?').toUpperCase()
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
@@ -191,15 +188,15 @@ export default function Home() {
         <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>QUICK ACTIONS</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <Link href="/dashboard/today"
-            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.25)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
+            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
             <div style={{ fontSize: 26, marginBottom: 10 }}>📅</div>
-            <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>Today's Content</p>
+            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>Today's Content</p>
             <p style={{ color: '#555', fontSize: 12, margin: 0 }}>5 ideas ready</p>
           </Link>
           <Link href="/dashboard/strategy"
-            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.25)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
+            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
             <div style={{ fontSize: 26, marginBottom: 10 }}>🎯</div>
-            <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>My Strategy</p>
+            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>My Strategy</p>
             <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Brand identity</p>
           </Link>
         </div>

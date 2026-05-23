@@ -88,7 +88,12 @@ export default function Onboarding() {
           scrapedData = json.scrapedData || {}
           engagementRate = json.engagementRate || 0
           hikerSuccess = json.hikerSuccess || false
-          console.log('[onboarding] Scrape success — hikerAPI:', hikerSuccess, '| brandScore:', analysis?.brandScore, '| followers:', scrapedData.follower_count)
+          console.log('[onboarding] Scrape success — hikerAPI:', hikerSuccess, '| brandScore:', analysis?.brandScore, '| followers:', scrapedData.follower_count, '| full_name:', scrapedData.full_name)
+
+          // Persist HikerAPI full_name to auth metadata so dashboard greeting has it immediately
+          if (scrapedData.full_name && user) {
+            await supabase.auth.updateUser({ data: { hiker_full_name: scrapedData.full_name } })
+          }
         }
       } catch (fetchErr) {
         console.warn('[onboarding] Scrape fetch failed:', fetchErr)
