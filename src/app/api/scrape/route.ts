@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
-const HIKERAPI_KEY = process.env.HIKERAPI_KEY
+const GEMINI_KEY = process.env.GEMINI_API_KEY
+const HIKERAPI_KEY = process.env.HIKER_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 function extractHashtags(text: string): string[] {
   return (text?.match(/#\w+/g) || []).map(h => h.toLowerCase())
@@ -15,7 +15,7 @@ function mediaTypeName(t: number): string {
 }
 
 async function hikerGet(path: string) {
-  const url = `https://hikerapi.com/api/v1${path}`
+  const url = `https://api.hikerapi.com/v1${path}`
   console.log('[scrape] HikerAPI GET:', url)
   const res = await fetch(url, {
     headers: { 'x-access-key': HIKERAPI_KEY!, Accept: 'application/json' },
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         if (pk) {
           console.log('[scrape] Fetching media for pk:', pk)
           try {
-            const media = await hikerGet(`/user/medias/chunk?user_id=${pk}&max_id=`)
+            const media = await hikerGet(`/user/medias?user_id=${pk}&count=30`)
             console.log('[scrape] Media response keys:', Object.keys(media || {}))
             const posts: any[] = (media.medias || media.items || media.response?.medias || []).slice(0, 30)
             console.log('[scrape] Posts fetched:', posts.length)
@@ -184,7 +184,7 @@ Return exactly this JSON:
               required: ['brandScore', 'niche', 'brandIdentity', 'brandPersonality', 'contentPillars', 'usGrowthStrategy'],
             },
             temperature: 0.7,
-            maxOutputTokens: 4000,
+            maxOutputTokens:8192,
           },
         }),
       }
