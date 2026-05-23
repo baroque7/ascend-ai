@@ -15,51 +15,77 @@ function mediaTypeName(t: number): string {
 }
 
 async function hikerGet(path: string) {
-  const res = await fetch(`https://hikerapi.com/api/v1${path}`, {
+  const url = `https://hikerapi.com/api/v1${path}`
+  console.log('[scrape] HikerAPI GET:', url)
+  const res = await fetch(url, {
     headers: { 'x-access-key': HIKERAPI_KEY!, Accept: 'application/json' },
-    signal: AbortSignal.timeout(14000),
+    signal: AbortSignal.timeout(15000),
   })
-  if (!res.ok) throw new Error(`HikerAPI ${res.status}`)
+  console.log('[scrape] HikerAPI response status:', res.status)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error('[scrape] HikerAPI error body:', body)
+    throw new Error(`HikerAPI ${res.status}: ${body.slice(0, 200)}`)
+  }
   return res.json()
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[scrape] ── POST /api/scrape ──────────────────────')
   try {
-    const { username, userId } = await request.json()
+    const body = await request.json()
+    const { username, userId } = body
+    console.log('[scrape] username:', username, '| userId:', userId)
+    console.log('[scrape] GEMINI_KEY present:', !!GEMINI_KEY)
+    console.log('[scrape] HIKERAPI_KEY present:', !!HIKERAPI_KEY)
+    console.log('[scrape] SERVICE_ROLE_KEY present:', !!SERVICE_ROLE_KEY)
+    console.log('[scrape] SUPABASE_URL:', SUPABASE_URL)
+
     if (!username) return NextResponse.json({ error: 'Username required' }, { status: 400 })
     if (!GEMINI_KEY) return NextResponse.json({ error: 'AI not configured' }, { status: 500 })
 
     const handle = username.replace('@', '').trim().toLowerCase()
     let scrapedData: Record<string, any> = { username: handle }
     let realEngagement = 0
+    let hikerSuccess = false
 
     // ── HikerAPI ──────────────────────────────────────────────
     if (HIKERAPI_KEY) {
+      console.log('[scrape] Starting HikerAPI profile fetch for:', handle)
       try {
-        const user = await hikerGet(`/user/by/username?username=${handle}`)
-        const pk = user.pk || user.id || ''
-        const followerCount = user.follower_count || 0
+        const userInfo = await hikerGet(`/user/by/username?username=${handle}`)
+        console.log('[scrape] HikerAPI user keys:', Object.keys(userInfo || {}))
+
+        const pk = userInfo.pk || userInfo.id || userInfo.user?.pk || ''
+        const followerCount = userInfo.follower_count ?? userInfo.user?.follower_count ?? 0
 
         scrapedData = {
-          username: user.username || handle,
-          full_name: user.full_name || '',
-          bio: user.biography || '',
+          username: userInfo.username || handle,
+          full_name: userInfo.full_name || '',
+          bio: userInfo.biography || userInfo.bio || '',
           follower_count: followerCount,
-          following_count: user.following_count || 0,
-          post_count: user.media_count || 0,
-          is_verified: user.is_verified || false,
+          following_count: userInfo.following_count ?? 0,
+          post_count: userInfo.media_count ?? 0,
+          is_verified: userInfo.is_verified || false,
           user_pk: pk,
         }
+        console.log('[scrape] HikerAPI profile scraped — followers:', followerCount, '| pk:', pk)
+        hikerSuccess = true
 
+        // ── Media / engagement ────────────────────────────────
         if (pk) {
+          console.log('[scrape] Fetching media for pk:', pk)
           try {
             const media = await hikerGet(`/user/medias/chunk?user_id=${pk}&max_id=`)
-            const posts: any[] = (media.medias || media.items || []).slice(0, 30)
+            console.log('[scrape] Media response keys:', Object.keys(media || {}))
+            const posts: any[] = (media.medias || media.items || media.response?.medias || []).slice(0, 30)
+            console.log('[scrape] Posts fetched:', posts.length)
 
             const totalEng = posts.reduce((s, p) => s + (p.like_count || 0) + (p.comment_count || 0), 0)
             realEngagement = followerCount > 0 && posts.length > 0
               ? parseFloat(((totalEng / posts.length / followerCount) * 100).toFixed(2))
               : 0
+            console.log('[scrape] Engagement rate calculated:', realEngagement)
 
             scrapedData.engagement_rate = realEngagement
             scrapedData.recent_posts = posts.map(p => ({
@@ -71,16 +97,22 @@ export async function POST(request: NextRequest) {
               date: p.taken_at ? new Date(p.taken_at * 1000).toISOString().split('T')[0] : '',
               type: mediaTypeName(p.media_type || 1),
             }))
-          } catch {}
+          } catch (mediaErr) {
+            console.warn('[scrape] Media fetch failed (continuing without posts):', mediaErr)
+          }
         }
-      } catch (e) {
-        console.warn('HikerAPI unavailable, using Gemini-only analysis:', e)
+      } catch (hikerErr) {
+        console.warn('[scrape] HikerAPI profile fetch failed — falling back to Gemini-only:', hikerErr)
+        hikerSuccess = false
       }
+    } else {
+      console.warn('[scrape] HIKERAPI_KEY not set — Gemini will estimate from username only')
     }
 
     // ── Gemini analysis ───────────────────────────────────────
+    console.log('[scrape] Calling Gemini with scrapedData keys:', Object.keys(scrapedData))
     const gemRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,27 +190,37 @@ Return exactly this JSON:
       }
     )
 
+    console.log('[scrape] Gemini response status:', gemRes.status)
     const gemData = await gemRes.json()
-    if (!gemRes.ok) return NextResponse.json({ error: 'AI analysis failed' }, { status: gemRes.status })
+    if (!gemRes.ok) {
+      console.error('[scrape] Gemini error:', JSON.stringify(gemData).slice(0, 300))
+      return NextResponse.json({ error: 'AI analysis failed', details: gemData.error?.message }, { status: gemRes.status })
+    }
 
     const text = gemData.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!text) return NextResponse.json({ error: 'Empty AI response' }, { status: 500 })
+    if (!text) {
+      console.error('[scrape] Gemini returned empty text, full response:', JSON.stringify(gemData).slice(0, 500))
+      return NextResponse.json({ error: 'Empty AI response' }, { status: 500 })
+    }
 
     const analysis = JSON.parse(text.trim())
-    const engagementRate = analysis.engagementRate || realEngagement
+    const engagementRate = realEngagement > 0 ? realEngagement : (analysis.engagementRate || 0)
+    console.log('[scrape] Analysis complete — brandScore:', analysis.brandScore, '| niche:', analysis.niche)
 
-    // ── Save to Supabase via service role ─────────────────────
+    // ── Save to Supabase via service role (if key available) ───
     if (userId && SERVICE_ROLE_KEY) {
+      console.log('[scrape] Writing to Supabase via service role...')
       try {
         const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-        await admin.from('users').upsert({
+        const { error: userErr } = await admin.from('users').upsert({
           id: userId,
           instagram_username: handle,
           last_scraped_at: new Date().toISOString(),
         }, { onConflict: 'id' })
+        if (userErr) console.error('[scrape] users upsert error:', userErr)
 
-        await admin.from('profiles').upsert({
+        const { error: profileErr } = await admin.from('profiles').upsert({
           user_id: userId,
           brand_score: Math.round(analysis.brandScore || 0),
           niche: analysis.niche || '',
@@ -208,14 +250,26 @@ Return exactly this JSON:
           raw_scraped_data: scrapedData,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' })
+        if (profileErr) console.error('[scrape] profiles upsert error:', profileErr)
+        else console.log('[scrape] Supabase writes completed successfully')
       } catch (dbErr) {
-        console.error('Supabase write error:', dbErr)
+        console.error('[scrape] Supabase write exception:', dbErr)
       }
+    } else {
+      if (!userId) console.warn('[scrape] No userId — skipping Supabase server-side write')
+      if (!SERVICE_ROLE_KEY) console.warn('[scrape] SUPABASE_SERVICE_ROLE_KEY not set — client must save the returned data')
     }
 
-    return NextResponse.json({ success: true, analysis, scrapedData })
+    console.log('[scrape] ── DONE ─────────────────────────────────')
+    return NextResponse.json({
+      success: true,
+      hikerSuccess,
+      analysis,
+      scrapedData,
+      engagementRate,
+    })
   } catch (err: any) {
-    console.error('Scrape error:', err)
+    console.error('[scrape] Unhandled error:', err)
     return NextResponse.json({ error: `Scrape failed: ${err.message}` }, { status: 500 })
   }
 }

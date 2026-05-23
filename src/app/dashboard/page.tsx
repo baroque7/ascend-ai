@@ -53,24 +53,29 @@ function ScoreRing({ score }: { score: number }) {
   )
 }
 
+function formatFollowers(n: number | undefined | null): string {
+  if (n == null) return '—'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  return n.toString()
+}
+
+function formatEngagement(n: number | undefined | null): string {
+  if (n == null) return '—'
+  return `${Number(n).toFixed(1)}%`
+}
+
 export default function Home() {
   const { user } = useAuth()
   const { profile, loading } = useProfile()
 
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
-  const score = profile?.brand_score || 0
+  const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const engagementRate = profile?.engagement_rate
-    ? `${Number(profile.engagement_rate).toFixed(1)}%`
-    : '—'
-  const followerCount = profile?.follower_count
-    ? profile.follower_count > 999
-      ? `${(profile.follower_count / 1000).toFixed(1)}k`
-      : profile.follower_count.toString()
-    : '—'
+  const hasBeenScraped = !!profile?.last_scraped_at
 
   const lastUpdated = profile?.last_scraped_at
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -98,6 +103,21 @@ export default function Home() {
         <p style={{ color: '#333', fontSize: 14, margin: 0, lineHeight: 1.5 }}>{tip}</p>
       </motion.div>
 
+      {/* Not-yet-analyzed banner */}
+      {!loading && !hasBeenScraped && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 20 }}>⚡</span>
+          <div>
+            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Profile analysis pending</p>
+            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>Complete onboarding to see your real brand score and stats.</p>
+          </div>
+          <Link href="/onboarding" style={{ marginLeft: 'auto', background: '#FFD700', color: '#000', fontSize: 12, fontWeight: 800, padding: '6px 14px', borderRadius: 50, textDecoration: 'none', flexShrink: 0 }}>
+            Analyze →
+          </Link>
+        </motion.div>
+      )}
+
       {/* Score + Stats */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
         style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 20, padding: '24px 20px', marginBottom: 16 }}>
@@ -107,34 +127,50 @@ export default function Home() {
             <span style={{ color: '#2a2a2a', fontSize: 11 }}>Updated {lastUpdated}</span>
           )}
         </div>
+
         {loading ? (
           <div style={{ width: 140, height: 140, margin: '0 auto', background: '#111', borderRadius: '50%' }} />
         ) : (
           <ScoreRing score={score} />
         )}
+
         <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 24, paddingTop: 20, borderTop: '1px solid #111' }}>
-          {[
-            { label: 'Followers', value: followerCount },
-            { label: 'Engagement', value: engagementRate },
-            { label: 'Niche', value: profile?.niche ? profile.niche.split(' ')[0] : '—' },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>{value}</div>
-              <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>{label}</div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>
+              {loading ? '…' : formatFollowers(profile?.follower_count)}
             </div>
-          ))}
+            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>Followers</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>
+              {loading ? '…' : formatEngagement(profile?.engagement_rate)}
+            </div>
+            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>Engagement</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {loading ? '…' : (profile?.niche ? profile.niche.split(' ')[0] : '—')}
+            </div>
+            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>Niche</div>
+          </div>
         </div>
       </motion.div>
 
-      {/* Profile handle */}
+      {/* Profile handle pill */}
       {profile?.instagram_username && !loading && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
           style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ color: '#333', fontSize: 20 }}>📸</span>
-          <div>
+          <div style={{ flex: 1 }}>
             <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 2px' }}>@{profile.instagram_username}</p>
             <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{profile.niche || 'No niche set'}</p>
           </div>
+          {profile.following_count > 0 && (
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ color: '#444', fontSize: 11, margin: '0 0 1px' }}>Following</p>
+              <p style={{ color: '#FFD700', fontSize: 13, fontWeight: 700, margin: 0 }}>{formatFollowers(profile.following_count)}</p>
+            </div>
+          )}
         </motion.div>
       )}
 

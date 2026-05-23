@@ -20,10 +20,10 @@ const SETUP_STEPS = [
   { id: 'niche', emoji: '🎯', title: "What's your content niche?", desc: "We'll generate ideas and strategy tailored to your niche." },
   { id: 'language', emoji: '🌍', title: 'What language do you speak?', desc: "Scripts in your language. Captions always in English." },
   { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "Enter it once — we'll never ask again." },
-  { id: 'processing', emoji: '⚡', title: 'Setting up your profile', desc: "Analyzing your Instagram and building your strategy…" },
+  { id: 'processing', emoji: '⚡', title: 'Analyzing your profile', desc: "Building your personalized brand strategy…" },
 ]
 
-type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'done' | 'error'
+type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'storing' | 'done' | 'error'
 
 export default function Onboarding() {
   const { user, supabase } = useAuth()
@@ -36,6 +36,7 @@ export default function Onboarding() {
   const [handle, setHandle] = useState('')
   const [status, setStatus] = useState<ProcessStatus>('idle')
   const [statusMsg, setStatusMsg] = useState('')
+  const [scrapeError, setScrapeError] = useState('')
 
   const current = SETUP_STEPS[step]
   const resolvedNiche = niche || customNiche.trim()
@@ -53,10 +54,11 @@ export default function Onboarding() {
   }
 
   async function runSetupPipeline() {
-    const cleanHandle = handle.replace('@', '').trim()
+    const cleanHandle = handle.replace('@', '').trim().toLowerCase()
+    setScrapeError('')
 
     try {
-      // 1. Save profile to Supabase + auth metadata
+      // ── Step 1: Save identity immediately ────────────────────
       setStatus('saving')
       setStatusMsg('Saving your profile…')
 
@@ -65,6 +67,7 @@ export default function Onboarding() {
       })
 
       if (user) {
+        // Write to users + profiles tables (authenticated client — works via RLS)
         await Promise.all([
           supabase.from('users').upsert({
             id: user.id,
@@ -78,28 +81,103 @@ export default function Onboarding() {
         ])
       }
 
-      // 2. Scrape Instagram + Gemini analysis (all-in-one)
+      // ── Step 2: Scrape Instagram + Gemini analysis ────────────
       setStatus('scraping')
-      setStatusMsg('Analyzing your Instagram profile…')
+      setStatusMsg('Fetching your Instagram data…')
+
+      let analysis: Record<string, any> | null = null
+      let scrapedData: Record<string, any> = {}
+      let engagementRate = 0
+      let hikerSuccess = false
 
       try {
-        await fetch('/api/scrape', {
+        const res = await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: cleanHandle, userId: user?.id }),
         })
-      } catch {}
+        const json = await res.json()
+
+        if (json.error) {
+          console.warn('[onboarding] Scrape returned error:', json.error)
+          setScrapeError('Instagram analysis had an issue — basic profile saved.')
+        } else {
+          analysis = json.analysis || null
+          scrapedData = json.scrapedData || {}
+          engagementRate = json.engagementRate || 0
+          hikerSuccess = json.hikerSuccess || false
+          console.log('[onboarding] Scrape success — hikerAPI:', hikerSuccess, '| brandScore:', analysis?.brandScore)
+        }
+      } catch (fetchErr) {
+        console.warn('[onboarding] Scrape fetch failed:', fetchErr)
+        setScrapeError('Could not reach analysis server — basic profile saved.')
+      }
+
+      // ── Step 3: Client-side Supabase write (no SERVICE_ROLE_KEY needed) ──
+      if (analysis && user) {
+        setStatus('storing')
+        setStatusMsg('Saving your brand analysis…')
+
+        const { error: usersErr } = await supabase.from('users').upsert({
+          id: user.id,
+          instagram_username: cleanHandle,
+          language,
+          last_scraped_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+        if (usersErr) console.error('[onboarding] users upsert error:', usersErr)
+
+        const { error: profilesErr } = await supabase.from('profiles').upsert({
+          user_id: user.id,
+          brand_score: Math.round(analysis.brandScore || 0),
+          niche: analysis.niche || resolvedNiche,
+          engagement_rate: engagementRate,
+          follower_count: scrapedData.follower_count || 0,
+          following_count: scrapedData.following_count || 0,
+          brand_identity: analysis.brandIdentity || '',
+          brand_personality: analysis.brandPersonality || '',
+          content_pillars: analysis.contentPillars || [],
+          what_makes_unique: analysis.whatMakesThemUnique || '',
+          current_problems: analysis.currentProblems || [],
+          profile_score: Math.round(analysis.profileScore || 0),
+          best_posting_times: analysis.bestPostingTimes || [],
+          top_content_type: analysis.topPerformingContentType || '',
+          format_fatigue: analysis.formatFatigue || false,
+          format_fatigue_warning: analysis.formatFatigueWarning || '',
+          us_growth_strategy: analysis.usGrowthStrategy || '',
+          hispanic_to_us_shift: analysis.hispanicToUSShift || '',
+          filming_tips: analysis.filmingEnvironmentTips || '',
+          hashtag_strategy: analysis.hashtagStrategy || '',
+          content_variations: analysis.contentVariations || [],
+          weekly_plan: analysis.weeklyPlan || '',
+          bio_rewrite: analysis.bioRewrite || '',
+          audience_type: analysis.audienceType || '',
+          is_hispanic_audience: analysis.isHispanicAudience || false,
+          posting_frequency: analysis.postingFrequency || '',
+          raw_scraped_data: scrapedData,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+        if (profilesErr) console.error('[onboarding] profiles upsert error:', profilesErr)
+        else console.log('[onboarding] All data saved to Supabase successfully')
+      }
 
       setStatus('done')
       setStatusMsg('All done! Taking you to your dashboard…')
       setTimeout(() => router.push('/dashboard'), 1200)
 
-    } catch {
+    } catch (err: any) {
+      console.error('[onboarding] Pipeline error:', err)
       setStatus('error')
-      setStatusMsg('Setup incomplete — you can finish in Settings.')
+      setStatusMsg('Something went wrong — redirecting to dashboard.')
       setTimeout(() => router.push('/dashboard'), 2500)
     }
   }
+
+  const statusSteps: { key: ProcessStatus; label: string }[] = [
+    { key: 'saving', label: 'Profile saved' },
+    { key: 'scraping', label: 'Instagram analyzed' },
+    { key: 'storing', label: 'Brand data stored' },
+    { key: 'done', label: 'Ready' },
+  ]
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '24px', maxWidth: 480, margin: '0 auto' }}>
@@ -142,7 +220,7 @@ export default function Onboarding() {
               <p style={{ color: '#555', fontSize: 14, lineHeight: 1.6 }}>{current.desc}</p>
             </div>
 
-            {/* NICHE step */}
+            {/* NICHE */}
             {step === 1 && (
               <div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
@@ -167,7 +245,7 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* LANGUAGE step */}
+            {/* LANGUAGE */}
             {step === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {LANGUAGES.map(l => {
@@ -183,7 +261,7 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* HANDLE step */}
+            {/* HANDLE */}
             {step === 3 && (
               <div style={{ marginBottom: 24 }}>
                 <input
@@ -199,7 +277,7 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* PROCESSING step */}
+            {/* PROCESSING */}
             {step === 4 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
                 {status !== 'done' && status !== 'error' && (
@@ -221,30 +299,34 @@ export default function Onboarding() {
                   key={statusMsg}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  style={{ color: status === 'error' ? '#ff8c42' : status === 'done' ? '#FFD700' : '#ccc', fontSize: 16, fontWeight: 600, textAlign: 'center', lineHeight: 1.5 }}
+                  style={{ color: status === 'error' ? '#ff8c42' : status === 'done' ? '#FFD700' : '#ccc', fontSize: 16, fontWeight: 600, textAlign: 'center', lineHeight: 1.5, marginBottom: 8 }}
                 >
                   {statusMsg}
                 </motion.p>
 
-                <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                  {[
-                    { key: 'saving', label: 'Profile saved' },
-                    { key: 'scraping', label: 'Instagram analyzed' },
-                    { key: 'done', label: 'Brand data ready' },
-                  ].map((item, i) => {
-                    const steps: ProcessStatus[] = ['saving', 'scraping', 'done']
-                    const idx = steps.indexOf(item.key as ProcessStatus)
-                    const currentIdx = steps.indexOf(status)
-                    const isDone = currentIdx > idx || status === 'done'
-                    const isActive = steps[currentIdx] === item.key
+                {scrapeError && (
+                  <p style={{ color: '#666', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{scrapeError}</p>
+                )}
+
+                <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                  {statusSteps.map((item, i) => {
+                    const order: ProcessStatus[] = ['saving', 'scraping', 'storing', 'done']
+                    const itemIdx = order.indexOf(item.key)
+                    const currentIdx = order.indexOf(status)
+                    const isDone = currentIdx > itemIdx || status === 'done'
+                    const isActive = order[currentIdx] === item.key
                     return (
                       <motion.div key={item.key}
                         initial={{ opacity: 0, x: -12 }}
-                        animate={{ opacity: isDone || isActive ? 1 : 0.3, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                        animate={{ opacity: isDone || isActive ? 1 : 0.25, x: 0 }}
+                        transition={{ delay: i * 0.08 }}
                         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: isDone ? 'rgba(255,215,0,0.04)' : '#0a0a0a', border: `1px solid ${isDone ? 'rgba(255,215,0,0.15)' : '#111'}`, borderRadius: 10 }}>
-                        <span style={{ fontSize: 16 }}>{isDone ? '✓' : isActive ? '⟳' : '○'}</span>
-                        <span style={{ color: isDone ? '#FFD700' : isActive ? '#fff' : '#333', fontSize: 13, fontWeight: isDone ? 700 : 400 }}>{item.label}</span>
+                        <span style={{ fontSize: 14, color: isDone ? '#FFD700' : isActive ? '#fff' : '#222' }}>
+                          {isDone ? '✓' : isActive ? '●' : '○'}
+                        </span>
+                        <span style={{ color: isDone ? '#FFD700' : isActive ? '#fff' : '#333', fontSize: 13, fontWeight: isDone ? 700 : 400 }}>
+                          {item.label}
+                        </span>
                       </motion.div>
                     )
                   })}
