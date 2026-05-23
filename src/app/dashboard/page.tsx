@@ -73,14 +73,17 @@ export default function Home() {
   const hikerFullName = (user?.user_metadata?.hiker_full_name as string | undefined)
     || (profile?.raw_scraped_data as any)?.full_name
     || ''
-  const displayName = loading ? '…' : (hikerFullName || 'Creator')
+  const instagramFallback = profile?.instagram_username
+    ? profile.instagram_username.charAt(0).toUpperCase() + profile.instagram_username.slice(1)
+    : ''
+  const displayName = loading ? '…' : (hikerFullName || instagramFallback || 'there')
 
   const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const hasBeenScraped = !!profile?.last_scraped_at
+  const hasBeenScraped = !!(profile?.last_scraped_at || profile?.niche || (profile?.brand_score && profile.brand_score > 0))
 
   const lastUpdated = profile?.last_scraped_at
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })

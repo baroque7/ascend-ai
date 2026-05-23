@@ -57,25 +57,32 @@ export async function POST(request: NextRequest) {
         console.log('[scrape] RAW HikerAPI userInfo:', JSON.stringify(userInfo).slice(0, 3000))
         console.log('[scrape] HikerAPI user keys:', Object.keys(userInfo || {}))
 
-        // Try every known field name for follower/following counts
+        // Try every known field name for follower/following counts (snake_case + camelCase variants)
         const followerCount =
           userInfo.follower_count ??
+          userInfo.followerCount ??
           userInfo.followers ??
+          userInfo.followersCount ??
           userInfo.edge_followed_by?.count ??
           userInfo.user?.follower_count ??
+          userInfo.user?.followerCount ??
           userInfo.user?.followers ??
           0
 
         const followingCount =
           userInfo.following_count ??
+          userInfo.followingCount ??
           userInfo.following ??
           userInfo.user?.following_count ??
+          userInfo.user?.followingCount ??
           0
 
         const postCount =
           userInfo.media_count ??
+          userInfo.mediaCount ??
           userInfo.post_count ??
           userInfo.user?.media_count ??
+          userInfo.user?.mediaCount ??
           0
 
         const bio =
@@ -84,13 +91,20 @@ export async function POST(request: NextRequest) {
           userInfo.user?.biography ??
           ''
 
-        const pk = userInfo.pk || userInfo.id || userInfo.user?.pk || ''
+        const pk =
+          userInfo.pk ??
+          userInfo.id ??
+          userInfo.userId ??
+          userInfo.user_id ??
+          userInfo.user?.pk ??
+          userInfo.user?.id ??
+          ''
 
         console.log('[scrape] Extracted — followers:', followerCount, '| following:', followingCount, '| posts:', postCount, '| pk:', pk)
 
         scrapedData = {
           username: userInfo.username || handle,
-          full_name: userInfo.full_name || userInfo.user?.full_name || '',
+          full_name: userInfo.full_name || userInfo.name || userInfo.user?.full_name || userInfo.user?.name || '',
           bio,
           follower_count: followerCount,
           following_count: followingCount,

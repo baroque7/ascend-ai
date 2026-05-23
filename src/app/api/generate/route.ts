@@ -64,15 +64,22 @@ STRICT RULES — violating these makes the output useless:
 6. Be very specific to the ${niche} niche. Generic lifestyle advice is BANNED.
 7. Use real scenarios, real situations, real emotions that this niche's audience experiences.
 
-SCRIPT STRUCTURE (do not label these sections, just write naturally):
-- Open with one line that makes someone stop scrolling — a confession, a contradiction, a specific visual, or a bold claim.
-- Immediately make them feel something — curiosity, recognition, FOMO, respect.
-- Build tension or stakes without giving away the answer.
-- Deliver the payoff — something specific, not obvious.
-- End with one clear action — follow, save, comment with one word.
+FILMING DIRECTION FORMAT — the script field must be a filming direction, NOT text to read aloud:
+- What to physically film: location, angle, movement, what's in frame
+- What to wear or what props/environment to use
+- How to move on camera or what action to take
+- Editing notes: cuts, transitions, music vibe, text overlays
+- Whether talking is needed or if visuals carry it
+- Keep it 80-120 words, written like directions from a director to an actor
+
+EXAMPLE of correct format:
+"Film yourself at your vanity doing your morning skincare routine. Start tight on just your hands applying serum — no face yet. Cut to you looking in the mirror, hair messy, no makeup. Hold that shot for 3 seconds. Cut to final glam look, same mirror angle. No talking needed. Add trending audio. Text overlay at the start: 'my actual morning' — then at the end: 'vs what they see'. Soft warm lighting only, nothing harsh."
+
+EXAMPLE of WRONG format (never do this):
+"Hey guys, today I want to share my morning routine with you. First I wake up at 7am..."
 
 Generate exactly 5 ideas. Return a JSON array:
-[{"title":"punchy 4-6 word title — make it sound human not AI","trendingTopic":"one specific US trend or cultural moment this taps","script":"full script in ${userLanguage} — 150-200 words, sounds like a real creator talking, no section labels, flows naturally","caption":"punchy English caption under 140 chars — no generic phrases like 'check this out' or 'you need to see this'","hashtags":"15 highly specific US-targeted hashtags relevant to ${niche}","postingTime":"specific time in EST with one-sentence reason based on ${audienceType} behavior","contentFormat":"reel or carousel or photo — choose the best fit for this specific idea","whyThisWorks":"one very specific sentence explaining why THIS idea will stop THIS audience from scrolling"}]`,
+[{"title":"punchy 4-6 word title — make it sound human not AI","trendingTopic":"one specific US trend or cultural moment this taps","script":"filming direction in ${userLanguage} — 80-120 words describing exactly what to film, how to move, what to wear, how to edit — NOT a script to read aloud","caption":"punchy English caption under 140 chars — no generic phrases like 'check this out' or 'you need to see this'","hashtags":"15 highly specific US-targeted hashtags relevant to ${niche}","postingTime":"specific time in EST with one-sentence reason based on ${audienceType} behavior","contentFormat":"reel or carousel or photo — choose the best fit for this specific idea","whyThisWorks":"one very specific sentence explaining why THIS idea will stop THIS audience from scrolling"}]`,
             }],
           }],
           generationConfig: {
