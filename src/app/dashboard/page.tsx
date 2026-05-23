@@ -69,13 +69,13 @@ export default function Home() {
   const { user } = useAuth()
   const { profile, loading } = useProfile()
 
-  // Name: full_name from metadata → instagram handle → email prefix → fallback
-  const fullName = user?.user_metadata?.full_name
-  const firstName = fullName
-    ? fullName.split(' ')[0]
-    : profile?.instagram_username
-      ? profile.instagram_username
-      : (user?.email?.split('@')[0] || 'there')
+  // Always prefer Instagram username — it's real identity, not the signup form name
+  const instagramHandle = profile?.instagram_username
+  const displayName = loading
+    ? '…'
+    : instagramHandle
+      ? instagramHandle
+      : (user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there')
 
   const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
@@ -88,12 +88,10 @@ export default function Home() {
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
 
-  // Avatar letter: first letter of full name, or @ symbol if using instagram handle
-  const avatarChar = fullName
-    ? fullName[0].toUpperCase()
-    : profile?.instagram_username
-      ? profile.instagram_username[0].toUpperCase()
-      : (user?.email?.[0] || '?').toUpperCase()
+  // Avatar: first letter of instagram handle if available
+  const avatarChar = instagramHandle
+    ? instagramHandle[0].toUpperCase()
+    : (user?.user_metadata?.full_name?.[0] || user?.email?.[0] || '?').toUpperCase()
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
@@ -112,7 +110,7 @@ export default function Home() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
         style={{ marginBottom: 28 }}>
         <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-0.5px' }}>
-          {greeting}, {firstName} 👋
+          {greeting}, {displayName} 👋
         </h2>
         <p style={{ color: '#333', fontSize: 14, margin: 0, lineHeight: 1.5 }}>{tip}</p>
       </motion.div>
