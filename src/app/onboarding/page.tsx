@@ -20,10 +20,10 @@ const SETUP_STEPS = [
   { id: 'niche', emoji: '🎯', title: "What's your content niche?", desc: "We'll generate ideas and strategy tailored to your niche." },
   { id: 'language', emoji: '🌍', title: 'What language do you speak?', desc: "Scripts in your language. Captions always in English." },
   { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "Enter it once — we'll never ask again." },
-  { id: 'processing', emoji: '⚡', title: 'Setting up your profile', desc: "Analyzing your niche and building your strategy…" },
+  { id: 'processing', emoji: '⚡', title: 'Setting up your profile', desc: "Analyzing your Instagram and building your strategy…" },
 ]
 
-type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'analyzing' | 'done' | 'error'
+type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'done' | 'error'
 
 export default function Onboarding() {
   const { user, supabase } = useAuth()
@@ -48,7 +48,6 @@ export default function Onboarding() {
 
   async function handleNext() {
     if (step < 3) { setStep(s => s + 1); return }
-    // Step 3 (handle) → move to processing and run pipeline
     setStep(4)
     await runSetupPipeline()
   }
@@ -57,7 +56,7 @@ export default function Onboarding() {
     const cleanHandle = handle.replace('@', '').trim()
 
     try {
-      // 1. Save to user_metadata + profiles table
+      // 1. Save profile to Supabase + auth metadata
       setStatus('saving')
       setStatusMsg('Saving your profile…')
 
@@ -66,64 +65,33 @@ export default function Onboarding() {
       })
 
       if (user) {
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          instagram_handle: cleanHandle,
-          niche: resolvedNiche,
-          language,
-        })
+        await Promise.all([
+          supabase.from('users').upsert({
+            id: user.id,
+            instagram_username: cleanHandle,
+            language,
+          }, { onConflict: 'id' }),
+          supabase.from('profiles').upsert({
+            user_id: user.id,
+            niche: resolvedNiche,
+          }, { onConflict: 'user_id' }),
+        ])
       }
 
-      // 2. Scrape / profile analysis
+      // 2. Scrape Instagram + Gemini analysis (all-in-one)
       setStatus('scraping')
       setStatusMsg('Analyzing your Instagram profile…')
 
-      let scrapeData: Record<string, any> = {}
       try {
-        const scrapeRes = await fetch('/api/scrape', {
+        await fetch('/api/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: cleanHandle }),
+          body: JSON.stringify({ username: cleanHandle, userId: user?.id }),
         })
-        const scrapeJson = await scrapeRes.json()
-        if (scrapeJson.profile && !scrapeJson.error) {
-          scrapeData = scrapeJson.profile
-          if (user) {
-            await supabase.from('profiles').update({
-              scrape_data: scrapeData,
-              scraped_at: new Date().toISOString(),
-            }).eq('id', user.id)
-          }
-        }
-      } catch {}
-
-      // 3. Full analysis
-      setStatus('analyzing')
-      setStatusMsg('Building your brand analysis…')
-
-      try {
-        const analyzeRes = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: cleanHandle,
-            niche: resolvedNiche,
-            language,
-            scrapeData,
-          }),
-        })
-        const analyzeJson = await analyzeRes.json()
-        if (!analyzeJson.error && user) {
-          await supabase.from('profiles').update({
-            analysis_data: analyzeJson,
-            analyzed_at: new Date().toISOString(),
-          }).eq('id', user.id)
-        }
       } catch {}
 
       setStatus('done')
       setStatusMsg('All done! Taking you to your dashboard…')
-
       setTimeout(() => router.push('/dashboard'), 1200)
 
     } catch {
@@ -146,7 +114,7 @@ export default function Onboarding() {
         )}
       </div>
 
-      {/* Progress bar (hidden during processing) */}
+      {/* Progress bar */}
       {step < 4 && (
         <div style={{ height: 3, background: '#111', borderRadius: 2, marginBottom: 36, overflow: 'hidden' }}>
           <motion.div
@@ -168,7 +136,6 @@ export default function Onboarding() {
             transition={{ duration: 0.28 }}
             style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           >
-            {/* Step header */}
             <div style={{ textAlign: 'center', marginBottom: step === 4 ? 48 : 32 }}>
               <div style={{ fontSize: 52, marginBottom: 16 }}>{current.emoji}</div>
               <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, marginBottom: 10, letterSpacing: '-0.5px', lineHeight: 1.2 }}>{current.title}</h1>
@@ -263,9 +230,9 @@ export default function Onboarding() {
                   {[
                     { key: 'saving', label: 'Profile saved' },
                     { key: 'scraping', label: 'Instagram analyzed' },
-                    { key: 'analyzing', label: 'Brand data ready' },
+                    { key: 'done', label: 'Brand data ready' },
                   ].map((item, i) => {
-                    const steps: ProcessStatus[] = ['saving', 'scraping', 'analyzing', 'done']
+                    const steps: ProcessStatus[] = ['saving', 'scraping', 'done']
                     const idx = steps.indexOf(item.key as ProcessStatus)
                     const currentIdx = steps.indexOf(status)
                     const isDone = currentIdx > idx || status === 'done'
@@ -288,7 +255,7 @@ export default function Onboarding() {
         </AnimatePresence>
       </div>
 
-      {/* Navigation — hidden during processing */}
+      {/* Navigation */}
       {step < 4 && (
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           {step > 0 && (

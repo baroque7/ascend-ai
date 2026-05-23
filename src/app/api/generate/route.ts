@@ -2,79 +2,88 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
-const FALLBACK_TOPICS = [
-  'building a personal brand online',
-  'making money with a side hustle',
-  'fitness transformation secrets',
-  'self-improvement for men',
-  'building confidence and discipline',
-]
+function fallback() {
+  return NextResponse.json([{
+    title: 'Tap Refresh to load ideas',
+    trendingTopic: 'Daily content creation',
+    script: 'Tap the refresh button to load your personalized content ideas for today.',
+    caption: 'Great content is one tap away. Refresh!',
+    hashtags: '#instagram #growth #content #creator #viral',
+    postingTime: '7:00 PM EST',
+    contentFormat: 'reel',
+    whyThisWorks: 'Fresh daily ideas keep your content calendar full.',
+  }])
+}
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const niche = searchParams.get('niche') || FALLBACK_TOPICS[Math.floor(Math.random() * FALLBACK_TOPICS.length)]
-  const language = searchParams.get('language') || 'English'
-
+export async function POST(request: NextRequest) {
   try {
-    if (!GEMINI_KEY) {
-      return NextResponse.json([
-        { Title: 'Set up your API key', Script: 'Add GEMINI_API_KEY to your environment variables to unlock daily content ideas.', Caption: 'Set up complete. Time to grow.', Hashtags: '#growth #instagram #creator', PostingTime: '6:00 PM EST' }
-      ])
-    }
+    const body = await request.json()
+    const { userProfile, language } = body
 
-    const prompt = `You are a viral Instagram content strategist for the US market.
+    if (!GEMINI_KEY) return fallback()
 
-Generate exactly 5 trending content ideas for a creator in the "${niche}" niche targeting American audiences.
+    const userLanguage = language || userProfile?.language || 'English'
+    const profile = userProfile || {}
 
-Script language: ${language} (write the Script field in ${language}, but Caption and Hashtags MUST always be in English)
-Captions: English only
-Hashtags: English only
-
-Make each idea feel like a trending US video concept right now. Be specific and compelling.
-
-Return ONLY this JSON array with no extra text:
-[
-  {
-    "Title": "Scroll-stopping hook title under 55 characters",
-    "Script": "Full 60-90 second video script in ${language}. Include opening hook, 3 value points, strong CTA.",
-    "Caption": "Short punchy English caption under 130 characters with emoji",
-    "Hashtags": "#tag1 #tag2 #tag3 #tag4 #tag5 (English only, US-focused)",
-    "PostingTime": "Best EST posting time e.g. 7:00 PM EST"
-  }
-]`
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 4000 },
+          contents: [{
+            parts: [{
+              text: `You are a viral content strategist who knows exactly what makes American men stop scrolling on Instagram. You understand the content pyramid: Setup, Hook, Build, Payoff, Proof, CTA.
+Creator profile: ${JSON.stringify(profile)}
+Their niche: ${profile.niche || 'Lifestyle'}
+Their brand personality: ${profile.brand_personality || 'The Girl Next Door'}
+Their language: ${userLanguage}
+Top performing content: ${profile.top_content_type || 'Reels'}
+Generate exactly 5 unique content ideas for today. Each one must feel completely different.
+Return ONLY a valid JSON array with no markdown no backticks:
+[
+{
+"title": "short punchy title for this content idea",
+"trendingTopic": "what US trend this taps into right now",
+"script": "full script in ${userLanguage} following the pyramid exactly — Setup: one line framing who this is for. Hook: the scroll stopping opening line. Build: raise the stakes without giving the answer. Payoff: the specific unlock. Proof: the receipt that makes it believable. CTA: one clear action. Make it sound like a real person talking not an AI. 150-200 words.",
+"caption": "punchy English caption under 150 characters that makes Americans want to follow",
+"hashtags": "15 US targeted hashtags in English for their specific niche",
+"postingTime": "best time to post today in EST with reason",
+"contentFormat": "reel or carousel or photo",
+"whyThisWorks": "one sentence explaining why this specific content will attract American men in their niche"
+}
+]`,
+            }],
+          }],
+          generationConfig: { temperature: 0.9, maxOutputTokens: 6000 },
         }),
       }
     )
 
-    const data = await response.json()
-
-    if (!response.ok) {
-      console.error('Gemini generate error:', response.status)
-      return NextResponse.json(fallbackIdeas())
-    }
+    const data = await res.json()
+    if (!res.ok) return fallback()
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
     const start = text.indexOf('[')
     const end = text.lastIndexOf(']')
-    if (start === -1 || end === -1) return NextResponse.json(fallbackIdeas())
+    if (start === -1 || end === -1) return fallback()
 
-    const parsed = JSON.parse(text.slice(start, end + 1))
-    return NextResponse.json(parsed)
-  } catch (error) {
-    console.error('Generate error:', error)
-    return NextResponse.json(fallbackIdeas())
+    return NextResponse.json(JSON.parse(text.slice(start, end + 1)))
+  } catch (err) {
+    console.error('Generate error:', err)
+    return fallback()
   }
 }
 
-function fallbackIdeas() {
-  return [{ Title: 'Tap Refresh for ideas', Script: 'Tap the refresh button to load fresh content ideas for today.', Caption: 'Great content is one tap away. Refresh!', Hashtags: '#instagram #growth #content #creator #viral', PostingTime: '7:00 PM EST' }]
+// Keep GET for any legacy calls
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const niche = searchParams.get('niche') || 'Lifestyle'
+  const language = searchParams.get('language') || 'English'
+  const fakeReq = new Request(request.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userProfile: { niche, language }, language }),
+  })
+  return POST(new NextRequest(fakeReq))
 }

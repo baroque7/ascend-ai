@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { motion, useInView, useAnimation, AnimatePresence } from 'framer-motion'
+import { motion, useInView, AnimatePresence } from 'framer-motion'
 
 function AnimatedWord({ word, delay = 0 }: { word: string; delay?: number }) {
   return (
@@ -89,20 +89,6 @@ export default function Landing() {
 
       {/* Hero */}
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 24px 0' }}>
-
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.18)', borderRadius: 50, padding: '7px 16px', marginBottom: 32, fontSize: 13, color: '#FFD700', fontWeight: 600 }}
-        >
-          <motion.span
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-          >✦</motion.span>
-          <span>2,400+ creators growing in the US</span>
-        </motion.div>
 
         {/* Headline */}
         <div style={{ marginBottom: 24, perspective: 800 }}>
@@ -192,10 +178,10 @@ export default function Landing() {
           transition={{ delay: 1.1 }}
           style={{ color: '#2a2a2a', fontSize: 13, textAlign: 'center', marginBottom: 64 }}
         >
-          $69.99/month · 7-day free trial · Cancel anytime
+          $69.99/month · 5-day free trial
         </motion.p>
 
-        {/* Floating orbs */}
+        {/* Floating orb */}
         <div style={{ position: 'relative', height: 0, overflow: 'visible', pointerEvents: 'none' }}>
           <motion.div
             animate={{ y: [0, -18, 0], opacity: [0.3, 0.6, 0.3] }}
@@ -242,11 +228,10 @@ export default function Landing() {
           transition={{ duration: 0.6 }}
           style={{ background: 'rgba(255,215,0,0.03)', border: '1px solid rgba(255,215,0,0.1)', borderRadius: 20, padding: '28px 24px', marginBottom: 48 }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
             {[
-              { value: 2400, suffix: '+', label: 'Active Creators' },
               { value: 69, prefix: '$', suffix: '.99', label: 'Per Month' },
-              { value: 7, suffix: '-day', label: 'Free Trial' },
+              { value: 5, suffix: '-day', label: 'Free Trial' },
             ].map(({ value, prefix = '', suffix, label }) => (
               <div key={label}>
                 <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 26, letterSpacing: '-0.5px' }}>
@@ -282,9 +267,9 @@ export default function Landing() {
               href="/signup"
               style={{ display: 'block', background: '#FFD700', color: '#000', padding: '17px', borderRadius: 50, textDecoration: 'none', fontSize: 16, fontWeight: 900, marginTop: 24 }}
             >
-              Start Free Trial
+              Build My American Brand
             </Link>
-            <p style={{ color: '#2a2a2a', fontSize: 12, marginTop: 12 }}>7-day free trial. No charge until day 8.</p>
+            <p style={{ color: '#2a2a2a', fontSize: 12, marginTop: 12 }}>5-day free trial. No charge until day 6.</p>
           </div>
         </motion.div>
 

@@ -1,19 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useProfile } from '@/hooks/useProfile'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
-
-const GROWTH_DATA = [
-  { day: 'Mon', followers: 1200 },
-  { day: 'Tue', followers: 1340 },
-  { day: 'Wed', followers: 1290 },
-  { day: 'Thu', followers: 1520 },
-  { day: 'Fri', followers: 1680 },
-  { day: 'Sat', followers: 1850 },
-  { day: 'Sun', followers: 2100 },
-]
 
 const TIPS = [
   'Post your script within 2 hours of peak EST traffic for 3× the reach.',
@@ -65,11 +55,26 @@ function ScoreRing({ score }: { score: number }) {
 
 export default function Home() {
   const { user } = useAuth()
+  const { profile, loading } = useProfile()
+
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
-  const score = 74
+  const score = profile?.brand_score || 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
+  const engagementRate = profile?.engagement_rate
+    ? `${Number(profile.engagement_rate).toFixed(1)}%`
+    : '—'
+  const followerCount = profile?.follower_count
+    ? profile.follower_count > 999
+      ? `${(profile.follower_count / 1000).toFixed(1)}k`
+      : profile.follower_count.toString()
+    : '—'
+
+  const lastUpdated = profile?.last_scraped_at
+    ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
@@ -93,16 +98,25 @@ export default function Home() {
         <p style={{ color: '#333', fontSize: 14, margin: 0, lineHeight: 1.5 }}>{tip}</p>
       </motion.div>
 
-      {/* Score + Stats row */}
+      {/* Score + Stats */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
         style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 20, padding: '24px 20px', marginBottom: 16 }}>
-        <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 20, textAlign: 'center' }}>BRAND SCORE</p>
-        <ScoreRing score={score} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, margin: 0 }}>BRAND SCORE</p>
+          {lastUpdated && !loading && (
+            <span style={{ color: '#2a2a2a', fontSize: 11 }}>Updated {lastUpdated}</span>
+          )}
+        </div>
+        {loading ? (
+          <div style={{ width: 140, height: 140, margin: '0 auto', background: '#111', borderRadius: '50%' }} />
+        ) : (
+          <ScoreRing score={score} />
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 24, paddingTop: 20, borderTop: '1px solid #111' }}>
           {[
-            { label: 'US Reach', value: '+12%' },
-            { label: 'Engagement', value: '4.2%' },
-            { label: 'Streak', value: '7 days' },
+            { label: 'Followers', value: followerCount },
+            { label: 'Engagement', value: engagementRate },
+            { label: 'Niche', value: profile?.niche ? profile.niche.split(' ')[0] : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>{value}</div>
@@ -112,26 +126,17 @@ export default function Home() {
         </div>
       </motion.div>
 
-      {/* Growth chart */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
-        style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 20, padding: '20px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: 0 }}>Follower Growth</p>
-          <span style={{ color: '#FFD700', fontSize: 12, fontWeight: 700 }}>+750 this week</span>
-        </div>
-        <ResponsiveContainer width="100%" height={120}>
-          <LineChart data={GROWTH_DATA} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <XAxis dataKey="day" tick={{ fill: '#333', fontSize: 10 }} axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ background: '#111', border: '1px solid #222', borderRadius: 8, fontSize: 12 }}
-              labelStyle={{ color: '#FFD700' }}
-              itemStyle={{ color: '#fff' }}
-              formatter={(v) => [Number(v).toLocaleString(), 'Followers']}
-            />
-            <Line type="monotone" dataKey="followers" stroke="#FFD700" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#FFD700', stroke: '#000', strokeWidth: 2 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </motion.div>
+      {/* Profile handle */}
+      {profile?.instagram_username && !loading && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+          style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ color: '#333', fontSize: 20 }}>📸</span>
+          <div>
+            <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 2px' }}>@{profile.instagram_username}</p>
+            <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{profile.niche || 'No niche set'}</p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Quick actions */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>

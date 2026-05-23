@@ -1,14 +1,18 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useProfile } from '@/hooks/useProfile'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Idea {
-  Title: string
-  Script: string
-  Caption: string
-  Hashtags: string
-  PostingTime: string
+  title: string
+  trendingTopic: string
+  script: string
+  caption: string
+  hashtags: string
+  postingTime: string
+  contentFormat: string
+  whyThisWorks: string
 }
 
 const THUMBNAIL_GRADIENTS = [
@@ -20,6 +24,12 @@ const THUMBNAIL_GRADIENTS = [
 ]
 
 const THUMBNAIL_ICONS = ['🎬', '🔥', '💡', '⚡', '🚀']
+
+const FORMAT_COLORS: Record<string, string> = {
+  reel: '#FFD700',
+  carousel: '#00c8ff',
+  photo: '#00ff80',
+}
 
 function SkeletonCard() {
   return (
@@ -33,29 +43,63 @@ function SkeletonCard() {
 }
 
 export default function TodayPage() {
+  const { user, supabase } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [cachedAt, setCachedAt] = useState<string | null>(null)
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const todayDate = new Date().toISOString().split('T')[0]
 
-  async function load() {
+  async function load(forceRefresh = false) {
+    if (!user) return
     setLoading(true)
     setError('')
     setExpanded(null)
+
     try {
-      const niche = profile?.niche || ''
-      const language = profile?.language || 'English'
-      const params = new URLSearchParams()
-      if (niche) params.set('niche', niche)
-      if (language) params.set('language', language)
-      const res = await fetch(`/api/generate?${params}`)
+      // Check 24h cache first (unless forced refresh)
+      if (!forceRefresh) {
+        const { data: cached } = await supabase
+          .from('content')
+          .select('ideas, created_at')
+          .eq('user_id', user.id)
+          .eq('date', todayDate)
+          .single()
+
+        if (cached?.ideas && Array.isArray(cached.ideas) && cached.ideas.length > 0) {
+          setIdeas(cached.ideas as Idea[])
+          setCachedAt(cached.created_at)
+          setLoading(false)
+          return
+        }
+      }
+
+      // Generate fresh ideas
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userProfile: profile,
+          language: profile?.language || 'English',
+        }),
+      })
       const data = await res.json()
       if (!Array.isArray(data)) throw new Error('Bad response')
       setIdeas(data)
+      setCachedAt(null)
+
+      // Save to 24h cache
+      await supabase.from('content').upsert({
+        user_id: user.id,
+        date: todayDate,
+        ideas: data,
+      }, { onConflict: 'user_id,date' })
+
     } catch {
       setError('Could not load ideas. Tap refresh.')
     }
@@ -63,8 +107,8 @@ export default function TodayPage() {
   }
 
   useEffect(() => {
-    if (!profileLoading) load()
-  }, [profileLoading, profile?.niche, profile?.language]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!profileLoading && user) load()
+  }, [profileLoading, user?.id, profile?.niche]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function copy(text: string, key: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -92,19 +136,25 @@ export default function TodayPage() {
             )}
           </h1>
         </div>
-        <motion.button onClick={load} disabled={isLoading} whileTap={{ scale: 0.9 }}
+        <motion.button onClick={() => load(true)} disabled={isLoading} whileTap={{ scale: 0.9 }}
           style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 14px', color: isLoading ? '#333' : '#FFD700', fontSize: 13, fontWeight: 700, cursor: isLoading ? 'default' : 'pointer' }}>
           {isLoading ? '…' : '↻ Refresh'}
         </motion.button>
       </div>
 
-      {profile?.niche && (
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          style={{ color: '#333', fontSize: 12, marginBottom: 24, marginTop: 4 }}>
-          Niche: <span style={{ color: '#FFD700' }}>{profile.niche}</span>
-        </motion.p>
-      )}
-      {!profile?.niche && !isLoading && <div style={{ marginBottom: 24 }} />}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, marginTop: 4 }}>
+        {profile?.niche && !isLoading && (
+          <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ color: '#333', fontSize: 12 }}>
+            Niche: <span style={{ color: '#FFD700' }}>{profile.niche}</span>
+          </motion.span>
+        )}
+        {cachedAt && !isLoading && (
+          <span style={{ color: '#2a2a2a', fontSize: 11 }}>
+            · cached today
+          </span>
+        )}
+      </div>
 
       {error && (
         <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
@@ -117,6 +167,7 @@ export default function TodayPage() {
       <AnimatePresence>
         {!isLoading && ideas.map((idea, i) => {
           const isOpen = expanded === i
+          const fmtColor = FORMAT_COLORS[idea.contentFormat?.toLowerCase()] || '#FFD700'
           return (
             <motion.div key={i}
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
@@ -125,18 +176,23 @@ export default function TodayPage() {
               <button onClick={() => setExpanded(isOpen ? null : i)} style={{ width: '100%', border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ background: THUMBNAIL_GRADIENTS[i % 5], height: 160, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: 16 }}>
                   <div style={{ fontSize: 42, marginBottom: 12 }}>{THUMBNAIL_ICONS[i % 5]}</div>
-                  <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, textAlign: 'center', margin: 0, lineHeight: 1.3, letterSpacing: '-0.3px', maxWidth: '85%' }}>{idea.Title}</p>
-                  <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(255,215,0,0.15)', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 6, padding: '3px 8px' }}>
-                    <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700 }}>#{i + 1}</span>
+                  <p style={{ color: '#fff', fontSize: 15, fontWeight: 800, textAlign: 'center', margin: 0, lineHeight: 1.3, letterSpacing: '-0.3px', maxWidth: '85%' }}>{idea.title}</p>
+                  <div style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.5)', border: `1px solid ${fmtColor}40`, borderRadius: 6, padding: '3px 8px' }}>
+                    <span style={{ color: fmtColor, fontSize: 11, fontWeight: 700 }}>{(idea.contentFormat || 'reel').toUpperCase()}</span>
                   </div>
                   <div style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontSize: 12 }}>⏰</span>
-                    <span style={{ color: '#888', fontSize: 11, fontWeight: 600 }}>{idea.PostingTime}</span>
+                    <span style={{ color: '#888', fontSize: 11, fontWeight: 600 }}>{idea.postingTime}</span>
                   </div>
+                  {idea.trendingTopic && (
+                    <div style={{ position: 'absolute', bottom: 12, right: 12 }}>
+                      <span style={{ color: '#555', fontSize: 10, fontWeight: 500 }}>#{idea.trendingTopic.split(' ').slice(0, 2).join(' ')}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ padding: '14px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p style={{ color: '#555', fontSize: 12, margin: 0, flex: 1, paddingRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.Caption}</p>
+                  <p style={{ color: '#555', fontSize: 12, margin: 0, flex: 1, paddingRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idea.caption}</p>
                   <motion.span animate={{ rotate: isOpen ? 180 : 0 }} style={{ color: '#333', fontSize: 18, flexShrink: 0 }}>↓</motion.span>
                 </div>
               </button>
@@ -146,37 +202,48 @@ export default function TodayPage() {
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} style={{ overflow: 'hidden' }}>
                     <div style={{ borderTop: '1px solid #1a1a1a', padding: '20px 18px' }}>
 
+                      {/* Why this works */}
+                      {idea.whyThisWorks && (
+                        <div style={{ background: 'rgba(255,215,0,0.04)', border: '1px solid rgba(255,215,0,0.1)', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+                          <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, margin: '0 0 4px', letterSpacing: 0.5 }}>WHY THIS WORKS</p>
+                          <p style={{ color: '#888', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{idea.whyThisWorks}</p>
+                        </div>
+                      )}
+
+                      {/* Script */}
                       <div style={{ marginBottom: 20 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>📹 SCRIPT</span>
-                          <button onClick={() => copy(idea.Script, `s${i}`)}
+                          <button onClick={() => copy(idea.script, `s${i}`)}
                             style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: copied === `s${i}` ? '#FFD700' : '#444', fontSize: 11, padding: '3px 9px', cursor: 'pointer' }}>
                             {copied === `s${i}` ? '✓ Copied' : 'Copy'}
                           </button>
                         </div>
-                        <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{idea.Script}</p>
+                        <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{idea.script}</p>
                       </div>
 
+                      {/* Caption */}
                       <div style={{ marginBottom: 20 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>✏️ CAPTION</span>
-                          <button onClick={() => copy(idea.Caption, `c${i}`)}
+                          <button onClick={() => copy(idea.caption, `c${i}`)}
                             style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: copied === `c${i}` ? '#FFD700' : '#444', fontSize: 11, padding: '3px 9px', cursor: 'pointer' }}>
                             {copied === `c${i}` ? '✓ Copied' : 'Copy'}
                           </button>
                         </div>
-                        <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{idea.Caption}</p>
+                        <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{idea.caption}</p>
                       </div>
 
+                      {/* Hashtags */}
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                           <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>#️⃣ HASHTAGS</span>
-                          <button onClick={() => copy(idea.Hashtags, `h${i}`)}
+                          <button onClick={() => copy(idea.hashtags, `h${i}`)}
                             style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: copied === `h${i}` ? '#FFD700' : '#444', fontSize: 11, padding: '3px 9px', cursor: 'pointer' }}>
                             {copied === `h${i}` ? '✓ Copied' : 'Copy'}
                           </button>
                         </div>
-                        <p style={{ color: '#666', fontSize: 13, lineHeight: 1.8, margin: 0 }}>{idea.Hashtags}</p>
+                        <p style={{ color: '#666', fontSize: 13, lineHeight: 1.8, margin: 0 }}>{idea.hashtags}</p>
                       </div>
 
                     </div>

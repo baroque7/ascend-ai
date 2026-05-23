@@ -1,39 +1,60 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useProfile } from '@/hooks/useProfile'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
 
+interface ContentPillar {
+  pillar: string
+  description: string
+  percentage: string
+}
+
 interface StrategyData {
-  brandIdentity: string
-  uniqueDifferentiator: string
-  usGrowthPlan: string
-  formatFatigueWarning: string
-  profileTips: string
-  filmingTips: string
-  contentPillars?: string[]
-  voiceAndTone?: string
-  estimatedTimeToResults?: string
+  brandStatement: string
+  uniqueAngle: string
+  brandVoice: string
+  visualIdentity: string
+  contentPillars: ContentPillar[]
+  audienceShiftPlan: string
+  formatFatigueAlert: string
+  top5ContentVariations: string[]
+  profileOptimization: {
+    bioRewrite: string
+    profilePictureTip: string
+    highlightStrategy: string
+  }
+  filmingEnvironment: {
+    mustRemove: string[]
+    mustAdd: string[]
+    outfitRecommendations: string[]
+    lightingSetup: string
+  }
+  weeklySchedule: {
+    monday: string
+    tuesday: string
+    wednesday: string
+    thursday: string
+    friday: string
+    saturday: string
+    sunday: string
+  }
+  '30dayMilestones': string[]
+  warningSignals: string[]
 }
 
 function SkeletonBlock({ height = 80 }: { height?: number }) {
   return <div className="skeleton" style={{ height, borderRadius: 12, marginBottom: 12 }} />
 }
 
-function Section({ icon, label, content, accentColor = '#FFD700' }: {
-  icon: string; label: string; content: string; accentColor?: string
-}) {
+function Section({ icon, label, content, accent = '#FFD700' }: { icon: string; label: string; content: string; accent?: string }) {
   const [copied, setCopied] = useState(false)
-  function copy() {
-    navigator.clipboard.writeText(content).then(() => {
-      setCopied(true); setTimeout(() => setCopied(false), 2000)
-    })
-  }
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
       style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ color: accentColor, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{icon} {label}</span>
-        <button onClick={copy}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ color: accent, fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>{icon} {label}</span>
+        <button onClick={() => { navigator.clipboard.writeText(content); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
           style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: copied ? '#FFD700' : '#444', fontSize: 11, padding: '3px 9px', cursor: 'pointer' }}>
           {copied ? '✓ Copied' : 'Copy'}
         </button>
@@ -43,68 +64,87 @@ function Section({ icon, label, content, accentColor = '#FFD700' }: {
   )
 }
 
-function WarningSection({ content }: { content: string }) {
+function ListSection({ icon, label, items, accent = '#FFD700' }: { icon: string; label: string; items: string[]; accent?: string }) {
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      style={{ background: 'rgba(255,100,0,0.05)', border: '1px solid rgba(255,100,0,0.2)', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-      <p style={{ color: '#ff8c42', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>⚠️ FORMAT FATIGUE WARNING</p>
-      <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.75, margin: 0 }}>{content}</p>
+      style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+      <p style={{ color: accent, fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>{icon} {label}</p>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: i < items.length - 1 ? 10 : 0 }}>
+          <span style={{ color: accent, fontSize: 13, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+          <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{item}</p>
+        </div>
+      ))}
     </motion.div>
   )
 }
 
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 export default function StrategyPage() {
-  const { profile, loading: profileLoading, updateProfile } = useProfile()
+  const { user, supabase } = useAuth()
+  const { profile, loading: profileLoading } = useProfile()
   const [data, setData] = useState<StrategyData | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const [cachedAt, setCachedAt] = useState<string | null>(null)
+
+  const todayDate = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
-    if (profileLoading) return
-    // If we have stored strategy, show it immediately
-    if (profile?.strategy_data && profile.strategy_data.brandIdentity) {
-      setData(profile.strategy_data as StrategyData)
-    } else if (profile?.instagram_handle || profile?.niche) {
-      // Auto-generate if no stored strategy
-      generateStrategy()
-    }
-  }, [profileLoading, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!profileLoading && user) loadStrategy()
+  }, [profileLoading, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function generateStrategy() {
+  async function loadStrategy(forceRefresh = false) {
+    if (!user) return
+    setError('')
+
+    // Check 24h cache
+    if (!forceRefresh) {
+      const { data: cached } = await supabase
+        .from('content')
+        .select('strategy, created_at')
+        .eq('user_id', user.id)
+        .eq('date', todayDate)
+        .single()
+
+      if (cached?.strategy && Object.keys(cached.strategy).length > 0) {
+        setData(cached.strategy as StrategyData)
+        setCachedAt(cached.created_at)
+        return
+      }
+    }
+
+    // Generate fresh
     if (!profile) return
     setGenerating(true)
-    setError('')
+    setCachedAt(null)
+
     try {
       const res = await fetch('/api/strategy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: profile.instagram_handle || 'creator',
-          niche: profile.niche,
-          language: profile.language,
-          scrapeContext: profile.scrape_data,
-          analysisContext: profile.analysis_data,
-        }),
+        body: JSON.stringify({ userProfile: profile }),
       })
       const json = await res.json()
       if (!res.ok || json.error) throw new Error(json.error || 'Strategy failed')
       setData(json)
-      // Persist to Supabase so next visit is instant
-      await updateProfile({ strategy_data: json })
+
+      await supabase.from('content').upsert({
+        user_id: user.id,
+        date: todayDate,
+        strategy: json,
+      }, { onConflict: 'user_id,date' })
     } catch (err: any) {
       setError(err.message || 'Could not build strategy. Try again.')
     }
     setGenerating(false)
   }
 
-  async function refresh() {
-    setData(null)
-    await generateStrategy()
-  }
-
   const isLoading = profileLoading || (generating && !data)
 
-  if (!profileLoading && !profile?.instagram_handle && !profile?.niche) {
+  if (!profileLoading && !profile?.instagram_username && !profile?.niche) {
     return (
       <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
@@ -126,12 +166,13 @@ export default function StrategyPage() {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
           <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.5px' }}>My US Strategy</h1>
-          {profile?.instagram_handle && (
-            <p style={{ color: '#333', fontSize: 13, margin: 0 }}>@{profile.instagram_handle} · {profile.niche}</p>
-          )}
+          <p style={{ color: '#333', fontSize: 13, margin: 0 }}>
+            {profile?.instagram_username ? `@${profile.instagram_username}` : ''}{profile?.niche ? ` · ${profile.niche}` : ''}
+            {cachedAt && <span style={{ color: '#2a2a2a' }}> · cached today</span>}
+          </p>
         </div>
         {data && !generating && (
-          <motion.button onClick={refresh} whileTap={{ scale: 0.9 }}
+          <motion.button onClick={() => loadStrategy(true)} whileTap={{ scale: 0.9 }}
             style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 12px', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
             ↻ Refresh
           </motion.button>
@@ -141,7 +182,7 @@ export default function StrategyPage() {
       {error && (
         <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
           <p style={{ color: '#ff6b6b', fontSize: 14, margin: '0 0 10px' }}>{error}</p>
-          <button onClick={generateStrategy} style={{ background: '#FFD700', border: 'none', borderRadius: 50, padding: '10px 20px', color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+          <button onClick={() => loadStrategy(true)} style={{ background: '#FFD700', border: 'none', borderRadius: 50, padding: '10px 20px', color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
             Try Again
           </button>
         </div>
@@ -165,32 +206,146 @@ export default function StrategyPage() {
         {!isLoading && data && (
           <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
-            {/* Brand identity card */}
+            {/* Brand Statement — gold hero card */}
             <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
               style={{ background: '#FFD700', borderRadius: 18, padding: '22px 20px', marginBottom: 16 }}>
-              <p style={{ color: 'rgba(0,0,0,0.4)', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>🧠 YOUR BRAND IDENTITY</p>
-              <p style={{ color: '#000', fontSize: 15, lineHeight: 1.65, margin: 0, fontWeight: 600 }}>{data.brandIdentity}</p>
+              <p style={{ color: 'rgba(0,0,0,0.4)', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>🧠 YOUR BRAND STATEMENT</p>
+              <p style={{ color: '#000', fontSize: 16, lineHeight: 1.65, margin: 0, fontWeight: 700 }}>{data.brandStatement}</p>
             </motion.div>
 
-            {/* Content pillars */}
-            {data.contentPillars && data.contentPillars.length > 0 && (
+            <Section icon="⚡" label="UNIQUE ANGLE" content={data.uniqueAngle} />
+            <Section icon="🎙️" label="BRAND VOICE" content={data.brandVoice} />
+            <Section icon="🎨" label="VISUAL IDENTITY" content={data.visualIdentity} />
+
+            {/* Content Pillars */}
+            {data.contentPillars?.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-                {data.contentPillars.map(p => (
-                  <span key={p} style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 50, padding: '5px 12px', color: '#FFD700', fontSize: 12, fontWeight: 600 }}>
-                    {p}
-                  </span>
+                style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>📊 CONTENT PILLARS</p>
+                {data.contentPillars.map((p, i) => (
+                  <div key={i} style={{ marginBottom: i < data.contentPillars.length - 1 ? 14 : 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{p.pillar}</span>
+                      <span style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 50, padding: '2px 9px', color: '#FFD700', fontSize: 11, fontWeight: 700 }}>{p.percentage}</span>
+                    </div>
+                    <p style={{ color: '#555', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{p.description}</p>
+                  </div>
                 ))}
               </motion.div>
             )}
 
-            <Section icon="⚡" label="WHAT MAKES YOU DIFFERENT" content={data.uniqueDifferentiator} />
-            {data.voiceAndTone && <Section icon="🎙️" label="YOUR VOICE & TONE" content={data.voiceAndTone} />}
-            <Section icon="🚀" label="US GROWTH PLAN (30 DAYS)" content={data.usGrowthPlan} />
-            <WarningSection content={data.formatFatigueWarning} />
-            <Section icon="✨" label="PROFILE OPTIMIZATION" content={data.profileTips} />
-            <Section icon="🎥" label="FILMING ENVIRONMENT TIPS" content={data.filmingTips} />
-            {data.estimatedTimeToResults && <Section icon="📅" label="REALISTIC TIMELINE" content={data.estimatedTimeToResults} />}
+            <Section icon="🚀" label="AUDIENCE SHIFT PLAN (30 DAYS)" content={data.audienceShiftPlan} />
+
+            {/* Format fatigue warning */}
+            {data.formatFatigueAlert && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                style={{ background: 'rgba(255,100,0,0.05)', border: '1px solid rgba(255,100,0,0.2)', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+                <p style={{ color: '#ff8c42', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>⚠️ FORMAT FATIGUE ALERT</p>
+                <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.75, margin: 0 }}>{data.formatFatigueAlert}</p>
+              </motion.div>
+            )}
+
+            {/* Top 5 Content Variations */}
+            {data.top5ContentVariations?.length > 0 && (
+              <ListSection icon="🔥" label="TOP 5 CONTENT VARIATIONS" items={data.top5ContentVariations} />
+            )}
+
+            {/* Profile Optimization */}
+            {data.profileOptimization && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>✨ PROFILE OPTIMIZATION</p>
+                <div style={{ marginBottom: 14 }}>
+                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>BIO REWRITE</p>
+                  <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{data.profileOptimization.bioRewrite}</p>
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>PROFILE PICTURE</p>
+                  <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{data.profileOptimization.profilePictureTip}</p>
+                </div>
+                <div>
+                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>STORY HIGHLIGHTS</p>
+                  <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{data.profileOptimization.highlightStrategy}</p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Filming Environment */}
+            {data.filmingEnvironment && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🎥 FILMING ENVIRONMENT</p>
+
+                {data.filmingEnvironment.mustRemove?.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ color: '#ff6b6b', fontSize: 11, fontWeight: 700, margin: '0 0 6px' }}>REMOVE:</p>
+                    {data.filmingEnvironment.mustRemove.map((item, i) => (
+                      <p key={i} style={{ color: '#ccc', fontSize: 13, margin: '0 0 4px', display: 'flex', gap: 8 }}>
+                        <span style={{ color: '#ff6b6b' }}>✗</span> {item}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {data.filmingEnvironment.mustAdd?.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ color: '#00ff80', fontSize: 11, fontWeight: 700, margin: '0 0 6px' }}>ADD:</p>
+                    {data.filmingEnvironment.mustAdd.map((item, i) => (
+                      <p key={i} style={{ color: '#ccc', fontSize: 13, margin: '0 0 4px', display: 'flex', gap: 8 }}>
+                        <span style={{ color: '#00ff80' }}>✓</span> {item}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {data.filmingEnvironment.outfitRecommendations?.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, margin: '0 0 6px' }}>OUTFITS:</p>
+                    {data.filmingEnvironment.outfitRecommendations.map((item, i) => (
+                      <p key={i} style={{ color: '#ccc', fontSize: 13, margin: '0 0 4px' }}>· {item}</p>
+                    ))}
+                  </div>
+                )}
+
+                <div>
+                  <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, margin: '0 0 6px' }}>LIGHTING:</p>
+                  <p style={{ color: '#ccc', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{data.filmingEnvironment.lightingSetup}</p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Weekly Schedule */}
+            {data.weeklySchedule && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>📅 WEEKLY SCHEDULE</p>
+                {DAYS.map((day, i) => (
+                  <div key={day} style={{ display: 'flex', gap: 12, marginBottom: i < DAYS.length - 1 ? 12 : 0 }}>
+                    <span style={{ color: '#333', fontSize: 12, fontWeight: 700, width: 28, flexShrink: 0, marginTop: 2 }}>{DAY_LABELS[i]}</span>
+                    <p style={{ color: '#ccc', fontSize: 13, margin: 0, lineHeight: 1.5 }}>{data.weeklySchedule[day]}</p>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* 30-day milestones */}
+            {data['30dayMilestones']?.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🏆 30-DAY MILESTONES</p>
+                {data['30dayMilestones'].map((m, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: i < data['30dayMilestones'].length - 1 ? 10 : 0 }}>
+                    <span style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 50, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFD700', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>W{i + 1}</span>
+                    <p style={{ color: '#ccc', fontSize: 13, margin: 0, lineHeight: 1.5, marginTop: 3 }}>{m}</p>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+
+            {/* Warning Signals */}
+            {data.warningSignals?.length > 0 && (
+              <ListSection icon="🚨" label="WARNING SIGNALS TO WATCH" items={data.warningSignals} accent="#ff8c42" />
+            )}
 
           </motion.div>
         )}

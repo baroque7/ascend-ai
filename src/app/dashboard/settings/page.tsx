@@ -17,7 +17,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (profile) {
-      setHandle(profile.instagram_handle || '')
+      setHandle(profile.instagram_username || '')
       setLanguage(profile.language || 'English')
     }
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -28,27 +28,17 @@ export default function SettingsPage() {
   async function save() {
     setSaving(true)
     const cleanHandle = handle.replace('@', '').trim()
-    const hadHandle = profile?.instagram_handle
+    const hadHandle = profile?.instagram_username
     const handleChanged = cleanHandle !== hadHandle
 
-    // Update both user_metadata and profiles table
     await supabase.auth.updateUser({ data: { instagram_handle: cleanHandle, language } })
-    await updateProfile({ instagram_handle: cleanHandle, language })
+    await updateProfile({ instagram_username: cleanHandle, language })
 
-    // If handle changed, trigger background re-scrape
     if (handleChanged && cleanHandle) {
       fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanHandle }),
-      }).then(async res => {
-        const result = await res.json()
-        if (result.profile && !result.error) {
-          await updateProfile({
-            scrape_data: result.profile,
-            scraped_at: new Date().toISOString(),
-          })
-        }
+        body: JSON.stringify({ username: cleanHandle, userId: user?.id }),
       }).catch(() => {})
     }
 
@@ -83,8 +73,8 @@ export default function SettingsPage() {
             {user?.email}
           </p>
         </div>
-        <div style={{ background: isPromo ? 'rgba(255,215,0,0.1)' : subStatus === 'active' ? 'rgba(0,255,128,0.1)' : 'rgba(255,68,68,0.1)', borderRadius: 6, padding: '4px 9px', flexShrink: 0 }}>
-          <span style={{ color: isPromo ? '#FFD700' : subStatus === 'active' ? '#00ff80' : '#ff6b6b', fontSize: 11, fontWeight: 700 }}>
+        <div style={{ background: isPromo ? 'rgba(255,215,0,0.1)' : subStatus === 'active' ? 'rgba(0,255,128,0.1)' : 'rgba(80,80,80,0.1)', borderRadius: 6, padding: '4px 9px', flexShrink: 0 }}>
+          <span style={{ color: isPromo ? '#FFD700' : subStatus === 'active' ? '#00ff80' : '#555', fontSize: 11, fontWeight: 700 }}>
             {isPromo ? 'PROMO' : subStatus === 'active' ? 'PRO' : 'INACTIVE'}
           </span>
         </div>
@@ -144,8 +134,8 @@ export default function SettingsPage() {
               {isPromo ? 'Promo access — full features unlocked' : subStatus === 'active' ? '$69.99 / month' : 'No active subscription'}
             </p>
           </div>
-          <div style={{ background: isPromo || subStatus === 'active' ? 'rgba(255,215,0,0.08)' : 'rgba(255,68,68,0.08)', border: `1px solid ${isPromo || subStatus === 'active' ? 'rgba(255,215,0,0.2)' : 'rgba(255,68,68,0.2)'}`, borderRadius: 8, padding: '5px 10px' }}>
-            <span style={{ color: isPromo || subStatus === 'active' ? '#FFD700' : '#ff6b6b', fontSize: 12, fontWeight: 700 }}>
+          <div style={{ background: isPromo || subStatus === 'active' ? 'rgba(255,215,0,0.08)' : 'rgba(80,80,80,0.08)', border: `1px solid ${isPromo || subStatus === 'active' ? 'rgba(255,215,0,0.2)' : '#222'}`, borderRadius: 8, padding: '5px 10px' }}>
+            <span style={{ color: isPromo || subStatus === 'active' ? '#FFD700' : '#444', fontSize: 12, fontWeight: 700 }}>
               {isPromo || subStatus === 'active' ? 'ACTIVE' : 'INACTIVE'}
             </span>
           </div>
@@ -158,7 +148,7 @@ export default function SettingsPage() {
           onClick={handleSignOut}
           disabled={signingOut}
           whileTap={{ scale: 0.98 }}
-          style={{ width: '100%', padding: '15px', background: 'transparent', border: '1px solid rgba(255,68,68,0.25)', borderRadius: 50, color: signingOut ? '#555' : '#ff6b6b', fontSize: 15, fontWeight: 700, cursor: signingOut ? 'default' : 'pointer' }}
+          style={{ width: '100%', padding: '15px', background: 'transparent', border: '1px solid #222', borderRadius: 50, color: signingOut ? '#2a2a2a' : '#444', fontSize: 15, fontWeight: 700, cursor: signingOut ? 'default' : 'pointer' }}
         >
           {signingOut ? 'Signing out…' : 'Sign Out'}
         </motion.button>
