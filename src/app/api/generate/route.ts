@@ -4,14 +4,14 @@ const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_
 
 function fallback() {
   return NextResponse.json([{
-    title: 'Tap Refresh to load ideas',
+    title: 'Profile analysis loading…',
     trendingTopic: 'Daily content creation',
-    script: 'Tap the refresh button to load your personalized content ideas for today.',
-    caption: 'Great content is one tap away. Refresh!',
+    script: 'Your personalized content ideas are being prepared. Complete your profile setup to get custom scripts tailored to your niche.',
+    caption: 'Building something real takes a moment. Your strategy is coming.',
     hashtags: '#instagram #growth #content #creator #viral',
     postingTime: '7:00 PM EST',
     contentFormat: 'reel',
-    whyThisWorks: 'Fresh daily ideas keep your content calendar full.',
+    whyThisWorks: 'Consistent posting beats sporadic perfection every time.',
   }])
 }
 
@@ -25,6 +25,23 @@ export async function POST(request: NextRequest) {
     const userLanguage = language || userProfile?.language || 'English'
     const profile = userProfile || {}
 
+    // Build optimized context for Gemini (only what matters for content)
+    const profileContext = {
+      niche: profile.niche || 'Lifestyle',
+      brandPersonality: profile.brand_personality || '',
+      language: userLanguage,
+      topContentType: profile.top_content_type || 'Reels',
+      contentPillars: profile.content_pillars || [],
+      engagementRate: profile.engagement_rate || 0,
+      followerCount: profile.follower_count || 0,
+      bestPostingTimes: profile.best_posting_times || [],
+      usGrowthStrategy: profile.us_growth_strategy || '',
+      hashtagStrategy: profile.hashtag_strategy || '',
+      audienceType: profile.audience_type || '',
+    }
+
+    console.log('[generate] Profile context:', JSON.stringify(profileContext))
+
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
@@ -34,48 +51,63 @@ export async function POST(request: NextRequest) {
           contents: [{
             parts: [{
               text: `You are a viral content strategist who knows exactly what makes American men stop scrolling on Instagram. You understand the content pyramid: Setup, Hook, Build, Payoff, Proof, CTA.
-Creator profile: ${JSON.stringify(profile)}
-Their niche: ${profile.niche || 'Lifestyle'}
-Their brand personality: ${profile.brand_personality || 'The Girl Next Door'}
+Creator profile: ${JSON.stringify(profileContext)}
+Their niche: ${profileContext.niche}
+Their brand personality: ${profileContext.brandPersonality || 'authentic and relatable'}
 Their language: ${userLanguage}
-Top performing content: ${profile.top_content_type || 'Reels'}
-Generate exactly 5 unique content ideas for today. Each one must feel completely different.
-Return ONLY a valid JSON array with no markdown no backticks:
-[
-{
-"title": "short punchy title for this content idea",
-"trendingTopic": "what US trend this taps into right now",
-"script": "full script in ${userLanguage} following the pyramid exactly — Setup: one line framing who this is for. Hook: the scroll stopping opening line. Build: raise the stakes without giving the answer. Payoff: the specific unlock. Proof: the receipt that makes it believable. CTA: one clear action. Make it sound like a real person talking not an AI. 150-200 words.",
-"caption": "punchy English caption under 150 characters that makes Americans want to follow",
-"hashtags": "15 US targeted hashtags in English for their specific niche",
-"postingTime": "best time to post today in EST with reason",
-"contentFormat": "reel or carousel or photo",
-"whyThisWorks": "one sentence explaining why this specific content will attract American men in their niche"
-}
-]`,
+Top performing content: ${profileContext.topContentType}
+Generate exactly 5 unique content ideas for today. Each one must feel completely different from the others. Make them highly specific to this creator's niche — not generic.
+Return a JSON array of exactly 5 objects with this shape:
+[{"title":"short punchy title","trendingTopic":"US trend this taps into","script":"full script in ${userLanguage} — Setup: one line framing who this is for. Hook: the scroll-stopping opening line. Build: raise the stakes. Payoff: the specific unlock. Proof: the receipt. CTA: one clear action. Sound like a real person, 150-200 words.","caption":"punchy English caption under 150 chars","hashtags":"15 US-targeted hashtags in English","postingTime":"best EST posting time with reason","contentFormat":"reel or carousel or photo","whyThisWorks":"one sentence why this attracts American followers in their niche"}]`,
             }],
           }],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 6000 },
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  title: { type: 'STRING' },
+                  trendingTopic: { type: 'STRING' },
+                  script: { type: 'STRING' },
+                  caption: { type: 'STRING' },
+                  hashtags: { type: 'STRING' },
+                  postingTime: { type: 'STRING' },
+                  contentFormat: { type: 'STRING' },
+                  whyThisWorks: { type: 'STRING' },
+                },
+                required: ['title', 'script', 'caption', 'hashtags', 'postingTime', 'contentFormat'],
+              },
+            },
+            temperature: 0.9,
+            maxOutputTokens: 6000,
+          },
         }),
       }
     )
 
+    console.log('[generate] Gemini response status:', res.status)
     const data = await res.json()
-    if (!res.ok) return fallback()
+    if (!res.ok) {
+      console.error('[generate] Gemini error:', JSON.stringify(data).slice(0, 300))
+      return fallback()
+    }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    const start = text.indexOf('[')
-    const end = text.lastIndexOf(']')
-    if (start === -1 || end === -1) return fallback()
+    console.log('[generate] Gemini output length:', text.length)
 
-    return NextResponse.json(JSON.parse(text.slice(start, end + 1)))
+    // With responseMimeType: application/json the response is already clean JSON
+    const parsed = JSON.parse(text.trim())
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback()
+
+    return NextResponse.json(parsed)
   } catch (err) {
-    console.error('Generate error:', err)
+    console.error('[generate] Error:', err)
     return fallback()
   }
 }
 
-// Keep GET for any legacy calls
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const niche = searchParams.get('niche') || 'Lifestyle'

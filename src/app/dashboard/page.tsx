@@ -69,7 +69,14 @@ export default function Home() {
   const { user } = useAuth()
   const { profile, loading } = useProfile()
 
-  const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
+  // Name: full_name from metadata → instagram handle → email prefix → fallback
+  const fullName = user?.user_metadata?.full_name
+  const firstName = fullName
+    ? fullName.split(' ')[0]
+    : profile?.instagram_username
+      ? profile.instagram_username
+      : (user?.email?.split('@')[0] || 'there')
+
   const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
   const hour = new Date().getHours()
@@ -81,6 +88,13 @@ export default function Home() {
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
 
+  // Avatar letter: first letter of full name, or @ symbol if using instagram handle
+  const avatarChar = fullName
+    ? fullName[0].toUpperCase()
+    : profile?.instagram_username
+      ? profile.instagram_username[0].toUpperCase()
+      : (user?.email?.[0] || '?').toUpperCase()
+
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
 
@@ -90,7 +104,7 @@ export default function Home() {
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>GramScaling</span>
         <Link href="/dashboard/settings"
           style={{ width: 36, height: 36, background: '#111', border: '1px solid #1a1a1a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#fff', fontSize: 15 }}>
-          {(user?.user_metadata?.full_name?.[0] || '?').toUpperCase()}
+          {avatarChar}
         </Link>
       </motion.div>
 
@@ -163,7 +177,7 @@ export default function Home() {
           <span style={{ color: '#333', fontSize: 20 }}>📸</span>
           <div style={{ flex: 1 }}>
             <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 2px' }}>@{profile.instagram_username}</p>
-            <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{profile.niche || 'No niche set'}</p>
+            <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{profile.niche || 'Niche being detected…'}</p>
           </div>
           {profile.following_count > 0 && (
             <div style={{ textAlign: 'right' }}>
@@ -176,19 +190,20 @@ export default function Home() {
 
       {/* Quick actions */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
-        <p style={{ color: '#333', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>QUICK ACTIONS</p>
+        <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>QUICK ACTIONS</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {[
-            { href: '/dashboard/today', icon: '📅', label: "Today's Content", sub: '5 ideas ready' },
-            { href: '/dashboard/strategy', icon: '🎯', label: 'My Strategy', sub: 'Brand identity' },
-          ].map(card => (
-            <Link key={card.href} href={card.href}
-              style={{ display: 'block', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{card.icon}</div>
-              <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 3px' }}>{card.label}</p>
-              <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{card.sub}</p>
-            </Link>
-          ))}
+          <Link href="/dashboard/today"
+            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.25)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
+            <div style={{ fontSize: 26, marginBottom: 10 }}>📅</div>
+            <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>Today's Content</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>5 ideas ready</p>
+          </Link>
+          <Link href="/dashboard/strategy"
+            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.25)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
+            <div style={{ fontSize: 26, marginBottom: 10 }}>🎯</div>
+            <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 4px' }}>My Strategy</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Brand identity</p>
+          </Link>
         </div>
       </motion.div>
 

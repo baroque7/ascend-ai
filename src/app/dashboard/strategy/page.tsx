@@ -144,7 +144,7 @@ export default function StrategyPage() {
 
   const isLoading = profileLoading || (generating && !data)
 
-  if (!profileLoading && !profile?.instagram_username && !profile?.niche) {
+  if (!profileLoading && !profile?.instagram_username) {
     return (
       <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
