@@ -13,11 +13,11 @@ export default function Terms() {
       <div style={{ color: '#888', fontSize: 15, lineHeight: 1.8 }}>
         {[
           ['1. Service Description', 'GramScaling is an AI-powered Instagram growth tool. We analyze your profile, generate content strategies, and provide daily content ideas to help you reach US audiences. You remain in full control of your account and content.'],
-          ['2. Subscription & Billing', 'GramScaling is $69/month. A 7-day free trial is available for new accounts. After the trial, your subscription auto-renews monthly. You may cancel at any time from your account settings.'],
+          ['2. Subscription & Billing', 'GramScaling is $69/month. A 5-day free trial is available for new accounts. After the trial, your subscription auto-renews monthly. You may cancel at any time from your account settings.'],
           ['3. User Responsibilities', 'You agree to (a) provide accurate information during signup, (b) only use the service for lawful purposes, (c) not share your account credentials, and (d) comply with Instagram\'s Terms of Service and Community Guidelines.'],
           ['4. Content Ownership', 'You retain full ownership of any content you create. GramScaling does not claim ownership over your posts, captions, or media. AI-generated scripts are provided as suggestions — you\'re free to edit them.'],
           ['5. No Guarantee of Results', 'While our AI provides best-in-class growth strategies, we cannot guarantee specific follower counts, views, or engagement metrics. Results depend on your posting consistency and content quality.'],
-          ['6. Refund Policy', 'You may cancel within 7 days of your first charge for a full refund. After 7 days, no refunds are issued for the current billing period. See our Refund Policy for full details.'],
+          ['6. Refund Policy', 'You may cancel within 5 days of your first charge for a full refund. After 5 days, no refunds are issued for the current billing period. See our Refund Policy for full details.'],
           ['7. Account Termination', 'We reserve the right to suspend or terminate accounts that violate these terms, engage in abuse, or attempt to reverse-engineer our service.'],
           ['8. Limitation of Liability', 'GramScaling is not liable for any indirect, incidental, or consequential damages arising from use of our service. Our maximum liability is limited to the amount you paid in the last 30 days.'],
           ['9. Changes to Terms', 'We may update these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.'],

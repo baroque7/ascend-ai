@@ -3,15 +3,11 @@ import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const PROMO_CODE = 'MIHAWK41'
 
 export default function Payment() {
-  const { user } = useAuth()
+  const { user, supabase } = useAuth()
   const [promo, setPromo] = useState('')
   const [promoError, setPromoError] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
@@ -20,26 +16,32 @@ export default function Payment() {
 
   async function handlePromo(e: React.SyntheticEvent) {
     e.preventDefault()
-    if (!promo.trim()) { setPromoError('Enter a promo code'); return }
-    setPromoLoading(true); setPromoError('')
-    try {
-      const res = await fetch('/api/redeem-promo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: promo.trim().toUpperCase() }),
-      })
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || 'Invalid promo code')
+    const code = promo.trim().toUpperCase()
+    if (!code) { setPromoError('Enter a promo code'); return }
+    if (code !== PROMO_CODE) { setPromoError('Invalid promo code'); return }
+    if (!user) { window.location.href = '/signup'; return }
 
-      // Valid — update user metadata client-side with their active session
-      await supabase.auth.updateUser({
-        data: { subscription_status: 'active', is_promo: true, promo_code: 'MIHAWK41' },
+    setPromoLoading(true)
+    setPromoError('')
+
+    try {
+      // Update auth metadata using the authenticated supabase client from useAuth
+      const { error: authErr } = await supabase.auth.updateUser({
+        data: { subscription_status: 'active', is_promo: true, promo_code: PROMO_CODE },
       })
+      if (authErr) throw authErr
+
+      // Mirror to users table so the dashboard reads it correctly
+      await supabase.from('users').upsert(
+        { id: user.id, is_promo: true },
+        { onConflict: 'id' }
+      )
+
       window.location.href = '/onboarding'
     } catch (err: any) {
-      setPromoError(err.message || 'Invalid promo code')
+      setPromoError(err.message || 'Something went wrong. Try again.')
+      setPromoLoading(false)
     }
-    setPromoLoading(false)
   }
 
   async function handleCheckout(e: React.SyntheticEvent) {
@@ -83,7 +85,7 @@ export default function Payment() {
         </Link>
 
         <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Start Your Free Trial</h1>
-        <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>7 days free, then $69.99/month. Cancel anytime.</p>
+        <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>5 days free, then $69.99/month.</p>
 
         <div style={{ background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 20, padding: '24px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -140,7 +142,7 @@ export default function Payment() {
         </form>
 
         <p style={{ color: '#2a2a2a', fontSize: 12, textAlign: 'center', marginTop: 24, lineHeight: 1.5 }}>
-          Secure payment · Cancel anytime · No hidden fees
+          Secure payment · No hidden fees
         </p>
       </motion.div>
     </div>

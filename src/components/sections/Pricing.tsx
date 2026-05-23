@@ -95,7 +95,7 @@ export default function Pricing() {
             Start free, <span className="gradient-text">scale fast</span>
           </h2>
           <p className="text-[#a0a0c0] text-lg max-w-xl mx-auto mb-8">
-            Every plan includes a 7-day free trial. No credit card required to start.
+            Every plan includes a 5-day free trial. No credit card required to start.
           </p>
 
           {/* Billing toggle */}
@@ -166,7 +166,7 @@ export default function Pricing() {
                   </div>
                   <div>
                     <h3 className="text-white font-bold text-lg leading-none">{plan.name}</h3>
-                    <p className="text-[#6060a0] text-xs mt-0.5">7-day free trial</p>
+                    <p className="text-[#6060a0] text-xs mt-0.5">5-day free trial</p>
                   </div>
                 </div>
 
@@ -224,7 +224,7 @@ export default function Pricing() {
 
         {/* Bottom note */}
         <p className="text-center text-[#6060a0] text-sm mt-10">
-          All plans include a 7-day free trial. Cancel anytime. No credit card required to start.
+          All plans include a 5-day free trial. Cancel anytime. No credit card required to start.
         </p>
       </div>
     </section>

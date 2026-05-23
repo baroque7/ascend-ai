@@ -33,7 +33,7 @@ export default function Pricing() {
             <span style={{ color: '#FFD700', fontSize: 64, fontWeight: 900, lineHeight: 1, letterSpacing: '-2px' }}>69</span>
             <span style={{ color: '#555', fontSize: 16, marginTop: 8 }}>/mo</span>
           </div>
-          <p style={{ color: '#333', fontSize: 13, marginTop: 6 }}>7-day free trial • Cancel anytime</p>
+          <p style={{ color: '#333', fontSize: 13, marginTop: 6 }}>5-day free trial • Cancel anytime</p>
         </div>
 
         <div style={{ marginBottom: 28 }}>
@@ -58,8 +58,8 @@ export default function Pricing() {
         <p style={{ color: '#FFD700', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Frequently Asked Questions</p>
         {[
           ['What is GramScaling?', 'An AI tool that analyzes your Instagram and builds you a personalized US growth strategy with daily content ideas.'],
-          ['Is there a free trial?', 'Yes — 7 days free. You can cancel anytime within the trial and you won\'t be charged.'],
-          ['What if I\'m not happy?', 'Cancel within the first 7 days for a full refund. See our refund policy for details.'],
+          ['Is there a free trial?', 'Yes — 5 days free. You can cancel anytime within the trial and you won\'t be charged.'],
+          ['What if I\'m not happy?', 'Cancel within the first 5 days for a full refund. See our refund policy for details.'],
           ['Do you post automatically?', 'We give you daily scripts and captions ready to paste. Auto-posting is coming soon.'],
         ].map(([q, a]) => (
           <div key={q} style={{ marginBottom: 16 }}>

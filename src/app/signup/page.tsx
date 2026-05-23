@@ -43,7 +43,7 @@ export default function SignUp() {
         </Link>
 
         <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Create Your Account</h1>
-        <p style={{ color: '#444', textAlign: 'center', marginBottom: 32, fontSize: 14 }}>Start your 7-day free trial</p>
+        <p style={{ color: '#444', textAlign: 'center', marginBottom: 32, fontSize: 14 }}>Start your 5-day free trial</p>
 
         <AnimatePresence>
           {error && (
