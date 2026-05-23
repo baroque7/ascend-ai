@@ -83,7 +83,8 @@ export default function Home() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const hasBeenScraped = !!(profile?.last_scraped_at || profile?.niche || (profile?.brand_score && profile.brand_score > 0))
+  const hasData = !!(profile?.brand_score && profile.brand_score > 0)
+  const hasHandle = !!profile?.instagram_username
 
   const lastUpdated = profile?.last_scraped_at
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -115,18 +116,28 @@ export default function Home() {
         <p style={{ color: '#333', fontSize: 14, margin: 0, lineHeight: 1.5 }}>{tip}</p>
       </motion.div>
 
-      {/* Not-yet-analyzed banner */}
-      {!loading && !hasBeenScraped && (
+      {/* Never-set-up banner — only for users with no instagram handle at all */}
+      {!loading && !hasHandle && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 20 }}>⚡</span>
           <div>
-            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Profile analysis pending</p>
-            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>Complete onboarding to see your real brand score and stats.</p>
+            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Set up your profile</p>
+            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>Connect your Instagram to unlock your brand score and strategy.</p>
           </div>
           <Link href="/onboarding" style={{ marginLeft: 'auto', background: '#FFD700', color: '#000', fontSize: 12, fontWeight: 800, padding: '6px 14px', borderRadius: 50, textDecoration: 'none', flexShrink: 0 }}>
-            Analyze →
+            Start →
           </Link>
+        </motion.div>
+      )}
+
+      {/* Analyzing banner — has handle but brand_score still 0 (scrape in progress or just completed) */}
+      {!loading && hasHandle && !hasData && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+            style={{ width: 18, height: 18, border: '2px solid #222', borderTopColor: '#FFD700', borderRadius: '50%', flexShrink: 0 }} />
+          <p style={{ color: '#555', fontSize: 13, margin: 0 }}>Finalizing your brand analysis…</p>
         </motion.div>
       )}
 

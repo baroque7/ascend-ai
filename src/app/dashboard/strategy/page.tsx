@@ -90,8 +90,6 @@ export default function StrategyPage() {
   const [error, setError] = useState('')
   const [cachedAt, setCachedAt] = useState<string | null>(null)
 
-  const todayDate = new Date().toISOString().split('T')[0]
-
   useEffect(() => {
     if (!profileLoading && user) loadStrategy()
   }, [profileLoading, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,19 +98,23 @@ export default function StrategyPage() {
     if (!user) return
     setError('')
 
-    // Check 24h cache
+    // Check cache: strategy is stored under the fixed key 'strategy', not a date.
+    // This prevents regeneration every day — only regenerate after 24h.
     if (!forceRefresh) {
       const { data: cached } = await supabase
         .from('content')
         .select('strategy, created_at')
         .eq('user_id', user.id)
-        .eq('date', todayDate)
+        .eq('date', 'strategy')
         .single()
 
       if (cached?.strategy && Object.keys(cached.strategy).length > 0) {
-        setData(cached.strategy as StrategyData)
-        setCachedAt(cached.created_at)
-        return
+        const ageMs = Date.now() - new Date(cached.created_at).getTime()
+        if (ageMs < 86_400_000) {
+          setData(cached.strategy as StrategyData)
+          setCachedAt(cached.created_at)
+          return
+        }
       }
     }
 
@@ -133,7 +135,7 @@ export default function StrategyPage() {
 
       await supabase.from('content').upsert({
         user_id: user.id,
-        date: todayDate,
+        date: 'strategy',
         strategy: json,
       }, { onConflict: 'user_id,date' })
     } catch (err: any) {
