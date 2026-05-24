@@ -167,6 +167,32 @@ export async function POST(request: NextRequest) {
       console.warn('[scrape] HIKERAPI_KEY not set — Gemini will estimate from username only')
     }
 
+    // ── Step 1: Save HikerAPI raw data immediately, before Gemini ─────────
+    // This lets the home screen show real follower counts right away.
+    if (userId && hikerSuccess) {
+      const partialAdmin = SERVICE_ROLE_KEY ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY) : null
+      if (partialAdmin) {
+        try {
+          await partialAdmin.from('users').upsert({
+            id: userId,
+            instagram_username: handle,
+            last_scraped_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+          await partialAdmin.from('profiles').upsert({
+            user_id: userId,
+            follower_count: scrapedData.follower_count || 0,
+            following_count: scrapedData.following_count || 0,
+            engagement_rate: realEngagement,
+            raw_scraped_data: scrapedData,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' })
+          console.log('[scrape] Partial HikerAPI data saved — followers:', scrapedData.follower_count)
+        } catch (e) {
+          console.warn('[scrape] Partial save failed (non-fatal):', e)
+        }
+      }
+    }
+
     // ── Build optimized Gemini payload (strip noise) ──────────
     const optimizedForGemini = {
       username: handle,
@@ -181,12 +207,13 @@ export async function POST(request: NextRequest) {
 
     console.log('[scrape] Sending to Gemini optimizedData:', JSON.stringify(optimizedForGemini))
 
-    // ── Gemini analysis ───────────────────────────────────────
+    // ── Step 2: Gemini analysis (30s timeout) ────────────────────
     const gemRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(30000),
         body: JSON.stringify({
           contents: [{
             parts: [{

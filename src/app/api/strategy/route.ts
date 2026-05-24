@@ -54,6 +54,7 @@ Based on this SPECIFIC account's actual data, build their complete US growth str
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(30000),
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {

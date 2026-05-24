@@ -67,7 +67,7 @@ function formatEngagement(n: number | undefined | null): string {
 
 export default function Home() {
   const { user } = useAuth()
-  const { profile, loading } = useProfile()
+  const { profile, loading, reload } = useProfile()
 
   // Greeting name: HikerAPI full_name (real Instagram name) → 'Creator'
   const hikerFullName = (user?.user_metadata?.hiker_full_name as string | undefined)
@@ -85,6 +85,13 @@ export default function Home() {
 
   const hasData = !!(profile?.brand_score && profile.brand_score > 0)
   const hasHandle = !!profile?.instagram_username
+
+  // Poll Supabase every 10s while HikerAPI data exists but Gemini hasn't finished yet
+  useEffect(() => {
+    if (loading || !hasHandle || hasData) return
+    const interval = setInterval(reload, 10000)
+    return () => clearInterval(interval)
+  }, [loading, hasHandle, hasData, reload])
 
   const lastUpdated = profile?.last_scraped_at
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -186,7 +193,11 @@ export default function Home() {
           <span style={{ color: '#333', fontSize: 20 }}>📸</span>
           <div style={{ flex: 1 }}>
             <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 2px' }}>@{profile.instagram_username}</p>
-            <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{profile.niche || 'Niche being detected…'}</p>
+            {(profile.niche || (profile.raw_scraped_data as any)?.bio) && (
+              <p style={{ color: '#333', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile.niche || ((profile.raw_scraped_data as any)?.bio || '').slice(0, 60)}
+              </p>
+            )}
           </div>
           {profile.following_count > 0 && (
             <div style={{ textAlign: 'right' }}>
