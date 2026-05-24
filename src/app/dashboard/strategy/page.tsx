@@ -90,8 +90,6 @@ export default function StrategyPage() {
   const [error, setError] = useState('')
   const [cachedAt, setCachedAt] = useState<string | null>(null)
 
-  const todayDate = new Date().toISOString().split('T')[0]
-
   useEffect(() => {
     if (!profileLoading && user) loadStrategy()
   }, [profileLoading, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -100,19 +98,23 @@ export default function StrategyPage() {
     if (!user) return
     setError('')
 
-    // Check 24h cache
+    // Check cache: strategy is stored under the fixed key 'strategy', not a date.
+    // This prevents regeneration every day — only regenerate after 24h.
     if (!forceRefresh) {
       const { data: cached } = await supabase
         .from('content')
         .select('strategy, created_at')
         .eq('user_id', user.id)
-        .eq('date', todayDate)
+        .eq('date', 'strategy')
         .single()
 
       if (cached?.strategy && Object.keys(cached.strategy).length > 0) {
-        setData(cached.strategy as StrategyData)
-        setCachedAt(cached.created_at)
-        return
+        const ageMs = Date.now() - new Date(cached.created_at).getTime()
+        if (ageMs < 86_400_000) {
+          setData(cached.strategy as StrategyData)
+          setCachedAt(cached.created_at)
+          return
+        }
       }
     }
 
@@ -121,7 +123,7 @@ export default function StrategyPage() {
     setGenerating(true)
     setCachedAt(null)
 
-    try {
+    async function attemptFetch() {
       const res = await fetch('/api/strategy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,22 +131,34 @@ export default function StrategyPage() {
       })
       const json = await res.json()
       if (!res.ok || json.error) throw new Error(json.error || 'Strategy failed')
+      return json
+    }
+
+    try {
+      let json: StrategyData
+      try {
+        json = await attemptFetch()
+      } catch {
+        // Exponential backoff: wait 3s then retry once
+        await new Promise(r => setTimeout(r, 3000))
+        json = await attemptFetch()
+      }
       setData(json)
 
       await supabase.from('content').upsert({
         user_id: user.id,
-        date: todayDate,
+        date: 'strategy',
         strategy: json,
       }, { onConflict: 'user_id,date' })
-    } catch (err: any) {
-      setError(err.message || 'Could not build strategy. Try again.')
+    } catch {
+      setError('Strategy loading, please wait a moment.')
     }
     setGenerating(false)
   }
 
   const isLoading = profileLoading || (generating && !data)
 
-  if (!profileLoading && !profile?.instagram_username && !profile?.niche) {
+  if (!profileLoading && !profile?.instagram_username) {
     return (
       <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
@@ -180,11 +194,15 @@ export default function StrategyPage() {
       </motion.div>
 
       {error && (
-        <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
-          <p style={{ color: '#ff6b6b', fontSize: 14, margin: '0 0 10px' }}>{error}</p>
-          <button onClick={() => loadStrategy(true)} style={{ background: '#FFD700', border: 'none', borderRadius: 50, padding: '10px 20px', color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
-            Try Again
-          </button>
+        <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 12, padding: '16px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+            style={{ width: 18, height: 18, border: '2px solid #222', borderTopColor: '#FFD700', borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ color: '#888', fontSize: 14, margin: '0 0 6px' }}>{error}</p>
+            <button onClick={() => loadStrategy(true)} style={{ background: 'none', border: 'none', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+              Retry now →
+            </button>
+          </div>
         </div>
       )}
 

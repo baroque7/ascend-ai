@@ -1,25 +1,18 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
-
-const NICHES = [
-  'Fitness & Health', 'Fashion & Style', 'Food & Cooking', 'Travel',
-  'Business & Money', 'Lifestyle', 'Beauty & Skincare', 'Music',
-  'Comedy & Entertainment', 'Tech & Gaming',
-]
 
 const LANGUAGES = [
   'English', 'Spanish', 'French', 'Portuguese', 'Arabic',
   'Italian', 'German', 'Turkish', 'Hindi', 'Indonesian',
 ]
 
+// Steps: 0=welcome, 1=language, 2=handle, 3=processing
 const SETUP_STEPS = [
-  { id: 'welcome', emoji: '👋', title: 'Welcome to GramScaling', desc: "Let's personalize your brand strategy in 3 quick steps." },
-  { id: 'niche', emoji: '🎯', title: "What's your content niche?", desc: "We'll generate ideas and strategy tailored to your niche." },
+  { id: 'welcome', emoji: '👋', title: 'Welcome to GramScaling', desc: "Let's build your personalized US growth strategy." },
   { id: 'language', emoji: '🌍', title: 'What language do you speak?', desc: "Scripts in your language. Captions always in English." },
-  { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "Enter it once — we'll never ask again." },
+  { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "Enter it once — we'll analyze your profile automatically." },
   { id: 'processing', emoji: '⚡', title: 'Analyzing your profile', desc: "Building your personalized brand strategy…" },
 ]
 
@@ -27,11 +20,8 @@ type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'storing' | 'done' | 'erro
 
 export default function Onboarding() {
   const { user, supabase } = useAuth()
-  const router = useRouter()
 
   const [step, setStep] = useState(0)
-  const [niche, setNiche] = useState('')
-  const [customNiche, setCustomNiche] = useState('')
   const [language, setLanguage] = useState('English')
   const [handle, setHandle] = useState('')
   const [status, setStatus] = useState<ProcessStatus>('idle')
@@ -39,17 +29,16 @@ export default function Onboarding() {
   const [scrapeError, setScrapeError] = useState('')
 
   const current = SETUP_STEPS[step]
-  const resolvedNiche = niche || customNiche.trim()
 
   const canNext =
     step === 0 ? true :
-    step === 1 ? resolvedNiche !== '' :
-    step === 2 ? language !== '' :
-    step === 3 ? true : false
+    step === 1 ? language !== '' :
+    step === 2 ? handle.trim().length > 0 : false
 
   async function handleNext() {
-    if (step < 3) { setStep(s => s + 1); return }
-    setStep(4)
+    if (step < 2) { setStep(s => s + 1); return }
+    // step === 2 → go to processing
+    setStep(3)
     await runSetupPipeline()
   }
 
@@ -58,30 +47,23 @@ export default function Onboarding() {
     setScrapeError('')
 
     try {
-      // ── Step 1: Save identity immediately ────────────────────
+      // ── Step 1: Save identity immediately ─────────────────────
       setStatus('saving')
       setStatusMsg('Saving your profile…')
 
       await supabase.auth.updateUser({
-        data: { niche: resolvedNiche, language, instagram_handle: cleanHandle },
+        data: { language, instagram_handle: cleanHandle },
       })
 
       if (user) {
-        // Write to users + profiles tables (authenticated client — works via RLS)
-        await Promise.all([
-          supabase.from('users').upsert({
-            id: user.id,
-            instagram_username: cleanHandle,
-            language,
-          }, { onConflict: 'id' }),
-          supabase.from('profiles').upsert({
-            user_id: user.id,
-            niche: resolvedNiche,
-          }, { onConflict: 'user_id' }),
-        ])
+        await supabase.from('users').upsert({
+          id: user.id,
+          instagram_username: cleanHandle,
+          language,
+        }, { onConflict: 'id' })
       }
 
-      // ── Step 2: Scrape Instagram + Gemini analysis ────────────
+      // ── Step 2: Scrape Instagram + Gemini analysis ─────────────
       setStatus('scraping')
       setStatusMsg('Fetching your Instagram data…')
 
@@ -106,14 +88,19 @@ export default function Onboarding() {
           scrapedData = json.scrapedData || {}
           engagementRate = json.engagementRate || 0
           hikerSuccess = json.hikerSuccess || false
-          console.log('[onboarding] Scrape success — hikerAPI:', hikerSuccess, '| brandScore:', analysis?.brandScore)
+          console.log('[onboarding] Scrape success — hikerAPI:', hikerSuccess, '| brandScore:', analysis?.brandScore, '| followers:', scrapedData.follower_count, '| full_name:', scrapedData.full_name)
+
+          // Persist HikerAPI full_name to auth metadata so dashboard greeting has it immediately
+          if (scrapedData.full_name && user) {
+            await supabase.auth.updateUser({ data: { hiker_full_name: scrapedData.full_name } })
+          }
         }
       } catch (fetchErr) {
         console.warn('[onboarding] Scrape fetch failed:', fetchErr)
         setScrapeError('Could not reach analysis server — basic profile saved.')
       }
 
-      // ── Step 3: Client-side Supabase write (no SERVICE_ROLE_KEY needed) ──
+      // ── Step 3: Client-side Supabase write (works via RLS) ─────
       if (analysis && user) {
         setStatus('storing')
         setStatusMsg('Saving your brand analysis…')
@@ -129,7 +116,7 @@ export default function Onboarding() {
         const { error: profilesErr } = await supabase.from('profiles').upsert({
           user_id: user.id,
           brand_score: Math.round(analysis.brandScore || 0),
-          niche: analysis.niche || resolvedNiche,
+          niche: analysis.niche || '',
           engagement_rate: engagementRate,
           follower_count: scrapedData.follower_count || 0,
           following_count: scrapedData.following_count || 0,
@@ -157,18 +144,19 @@ export default function Onboarding() {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' })
         if (profilesErr) console.error('[onboarding] profiles upsert error:', profilesErr)
-        else console.log('[onboarding] All data saved to Supabase successfully')
+        else console.log('[onboarding] All data saved to Supabase — followers:', scrapedData.follower_count, '| niche:', analysis.niche)
       }
 
       setStatus('done')
       setStatusMsg('All done! Taking you to your dashboard…')
-      setTimeout(() => router.push('/dashboard'), 1200)
+      // Use href for reliable redirect from within async pipeline
+      setTimeout(() => { window.location.href = '/dashboard' }, 1200)
 
     } catch (err: any) {
       console.error('[onboarding] Pipeline error:', err)
       setStatus('error')
       setStatusMsg('Something went wrong — redirecting to dashboard.')
-      setTimeout(() => router.push('/dashboard'), 2500)
+      setTimeout(() => { window.location.href = '/dashboard' }, 2000)
     }
   }
 
@@ -185,19 +173,19 @@ export default function Onboarding() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18 }}>GramScaling</span>
-        {step < 4 && (
-          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>
+        {step < 3 && (
+          <button onClick={() => { window.location.href = '/dashboard' }} style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             Skip
           </button>
         )}
       </div>
 
-      {/* Progress bar */}
-      {step < 4 && (
+      {/* Progress bar — only for steps 0-2 */}
+      {step < 3 && (
         <div style={{ height: 3, background: '#111', borderRadius: 2, marginBottom: 36, overflow: 'hidden' }}>
           <motion.div
             style={{ height: '100%', background: '#FFD700', borderRadius: 2 }}
-            animate={{ width: `${((step + 1) / 4) * 100}%` }}
+            animate={{ width: `${((step + 1) / 3) * 100}%` }}
             transition={{ duration: 0.4 }}
           />
         </div>
@@ -208,45 +196,20 @@ export default function Onboarding() {
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, x: step === 4 ? 0 : 30 }}
+            initial={{ opacity: 0, x: step === 3 ? 0 : 30 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: step === 4 ? 0 : -30 }}
+            exit={{ opacity: 0, x: step === 3 ? 0 : -30 }}
             transition={{ duration: 0.28 }}
             style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           >
-            <div style={{ textAlign: 'center', marginBottom: step === 4 ? 48 : 32 }}>
+            <div style={{ textAlign: 'center', marginBottom: step === 3 ? 48 : 32 }}>
               <div style={{ fontSize: 52, marginBottom: 16 }}>{current.emoji}</div>
               <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, marginBottom: 10, letterSpacing: '-0.5px', lineHeight: 1.2 }}>{current.title}</h1>
               <p style={{ color: '#555', fontSize: 14, lineHeight: 1.6 }}>{current.desc}</p>
             </div>
 
-            {/* NICHE */}
+            {/* LANGUAGE — step 1 */}
             {step === 1 && (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                  {NICHES.map(n => {
-                    const active = niche === n
-                    return (
-                      <motion.button key={n} onClick={() => { setNiche(n); setCustomNiche('') }}
-                        whileTap={{ scale: 0.97 }}
-                        style={{ padding: '13px 10px', background: active ? 'rgba(255,215,0,0.08)' : '#0a0a0a', border: `1px solid ${active ? 'rgba(255,215,0,0.4)' : '#1a1a1a'}`, borderRadius: 12, color: active ? '#FFD700' : '#666', fontSize: 12, fontWeight: active ? 700 : 400, cursor: 'pointer', textAlign: 'center' }}>
-                        {n}
-                      </motion.button>
-                    )
-                  })}
-                </div>
-                <input
-                  type="text"
-                  placeholder="Or type your niche…"
-                  value={customNiche}
-                  onChange={e => { setCustomNiche(e.target.value); setNiche('') }}
-                  style={{ width: '100%', padding: '13px 16px', background: '#0a0a0a', border: `1px solid ${customNiche ? 'rgba(255,215,0,0.3)' : '#1a1a1a'}`, borderRadius: 12, color: '#fff', fontSize: 14, boxSizing: 'border-box', outline: 'none' }}
-                />
-              </div>
-            )}
-
-            {/* LANGUAGE */}
-            {step === 2 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {LANGUAGES.map(l => {
                   const active = language === l
@@ -261,8 +224,8 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* HANDLE */}
-            {step === 3 && (
+            {/* HANDLE — step 2 */}
+            {step === 2 && (
               <div style={{ marginBottom: 24 }}>
                 <input
                   type="text"
@@ -273,12 +236,12 @@ export default function Onboarding() {
                   autoCapitalize="none"
                   autoCorrect="off"
                 />
-                <p style={{ color: '#333', fontSize: 13, textAlign: 'center', marginTop: 10 }}>You can update this anytime in Settings</p>
+                <p style={{ color: '#333', fontSize: 13, textAlign: 'center', marginTop: 10 }}>Your niche is detected automatically from your posts</p>
               </div>
             )}
 
-            {/* PROCESSING */}
-            {step === 4 && (
+            {/* PROCESSING — step 3 */}
+            {step === 3 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
                 {status !== 'done' && status !== 'error' && (
                   <motion.div
@@ -337,8 +300,8 @@ export default function Onboarding() {
         </AnimatePresence>
       </div>
 
-      {/* Navigation */}
-      {step < 4 && (
+      {/* Navigation — only for steps 0-2 */}
+      {step < 3 && (
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           {step > 0 && (
             <button
@@ -354,7 +317,7 @@ export default function Onboarding() {
             whileTap={{ scale: 0.98 }}
             style={{ flex: 1, padding: '16px', background: canNext ? '#FFD700' : '#1a1a1a', border: 'none', borderRadius: 50, color: canNext ? '#000' : '#333', fontSize: 17, fontWeight: 900, cursor: canNext ? 'pointer' : 'default' }}
           >
-            {step === 3 ? 'Set Up My Dashboard →' : 'Continue →'}
+            {step === 2 ? 'Analyze My Profile →' : 'Continue →'}
           </motion.button>
         </div>
       )}

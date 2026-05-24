@@ -56,7 +56,7 @@ function ScoreRing({ score }: { score: number }) {
 function formatFollowers(n: number | undefined | null): string {
   if (n == null) return '—'
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return n.toString()
 }
 
@@ -67,19 +67,39 @@ function formatEngagement(n: number | undefined | null): string {
 
 export default function Home() {
   const { user } = useAuth()
-  const { profile, loading } = useProfile()
+  const { profile, loading, reload } = useProfile()
 
-  const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
+  // Greeting name: HikerAPI full_name (real Instagram name) → 'Creator'
+  const hikerFullName = (user?.user_metadata?.hiker_full_name as string | undefined)
+    || (profile?.raw_scraped_data as any)?.full_name
+    || ''
+  const instagramFallback = profile?.instagram_username
+    ? profile.instagram_username.charAt(0).toUpperCase() + profile.instagram_username.slice(1)
+    : ''
+  const displayName = loading ? '…' : (hikerFullName || instagramFallback || 'there')
+
   const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const hasBeenScraped = !!profile?.last_scraped_at
+  const hasData = !!(profile?.brand_score && profile.brand_score > 0)
+  const hasHandle = !!profile?.instagram_username
+
+  // Poll Supabase every 10s while HikerAPI data exists but Gemini hasn't finished yet
+  useEffect(() => {
+    if (loading || !hasHandle || hasData) return
+    const interval = setInterval(reload, 10000)
+    return () => clearInterval(interval)
+  }, [loading, hasHandle, hasData, reload])
 
   const lastUpdated = profile?.last_scraped_at
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
+
+  // Avatar: first letter of HikerAPI name → instagram handle → email
+  const instagramHandle = profile?.instagram_username
+  const avatarChar = (hikerFullName?.[0] || instagramHandle?.[0] || user?.email?.[0] || '?').toUpperCase()
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
@@ -90,7 +110,7 @@ export default function Home() {
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>GramScaling</span>
         <Link href="/dashboard/settings"
           style={{ width: 36, height: 36, background: '#111', border: '1px solid #1a1a1a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#fff', fontSize: 15 }}>
-          {(user?.user_metadata?.full_name?.[0] || '?').toUpperCase()}
+          {avatarChar}
         </Link>
       </motion.div>
 
@@ -98,23 +118,33 @@ export default function Home() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}
         style={{ marginBottom: 28 }}>
         <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-0.5px' }}>
-          {greeting}, {firstName} 👋
+          {greeting}, {displayName} 👋
         </h2>
         <p style={{ color: '#333', fontSize: 14, margin: 0, lineHeight: 1.5 }}>{tip}</p>
       </motion.div>
 
-      {/* Not-yet-analyzed banner */}
-      {!loading && !hasBeenScraped && (
+      {/* Never-set-up banner — only for users with no instagram handle at all */}
+      {!loading && !hasHandle && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 20 }}>⚡</span>
           <div>
-            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Profile analysis pending</p>
-            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>Complete onboarding to see your real brand score and stats.</p>
+            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Set up your profile</p>
+            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>Connect your Instagram to unlock your brand score and strategy.</p>
           </div>
           <Link href="/onboarding" style={{ marginLeft: 'auto', background: '#FFD700', color: '#000', fontSize: 12, fontWeight: 800, padding: '6px 14px', borderRadius: 50, textDecoration: 'none', flexShrink: 0 }}>
-            Analyze →
+            Start →
           </Link>
+        </motion.div>
+      )}
+
+      {/* Analyzing banner — has handle but brand_score still 0 (scrape in progress or just completed) */}
+      {!loading && hasHandle && !hasData && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+            style={{ width: 18, height: 18, border: '2px solid #222', borderTopColor: '#FFD700', borderRadius: '50%', flexShrink: 0 }} />
+          <p style={{ color: '#555', fontSize: 13, margin: 0 }}>Finalizing your brand analysis…</p>
         </motion.div>
       )}
 
@@ -163,7 +193,11 @@ export default function Home() {
           <span style={{ color: '#333', fontSize: 20 }}>📸</span>
           <div style={{ flex: 1 }}>
             <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 2px' }}>@{profile.instagram_username}</p>
-            <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{profile.niche || 'No niche set'}</p>
+            {(profile.niche || (profile.raw_scraped_data as any)?.bio) && (
+              <p style={{ color: '#333', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile.niche || ((profile.raw_scraped_data as any)?.bio || '').slice(0, 60)}
+              </p>
+            )}
           </div>
           {profile.following_count > 0 && (
             <div style={{ textAlign: 'right' }}>
@@ -176,19 +210,20 @@ export default function Home() {
 
       {/* Quick actions */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
-        <p style={{ color: '#333', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>QUICK ACTIONS</p>
+        <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>QUICK ACTIONS</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {[
-            { href: '/dashboard/today', icon: '📅', label: "Today's Content", sub: '5 ideas ready' },
-            { href: '/dashboard/strategy', icon: '🎯', label: 'My Strategy', sub: 'Brand identity' },
-          ].map(card => (
-            <Link key={card.href} href={card.href}
-              style={{ display: 'block', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{card.icon}</div>
-              <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 3px' }}>{card.label}</p>
-              <p style={{ color: '#333', fontSize: 12, margin: 0 }}>{card.sub}</p>
-            </Link>
-          ))}
+          <Link href="/dashboard/today"
+            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
+            <div style={{ fontSize: 26, marginBottom: 10 }}>📅</div>
+            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>Today's Content</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>5 ideas ready</p>
+          </Link>
+          <Link href="/dashboard/strategy"
+            style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
+            <div style={{ fontSize: 26, marginBottom: 10 }}>🎯</div>
+            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>My Strategy</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Brand identity</p>
+          </Link>
         </div>
       </motion.div>
 
