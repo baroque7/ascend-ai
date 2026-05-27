@@ -2,59 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
-export async function POST(request: NextRequest) {
-  try {
-    const { userProfile } = await request.json()
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
 
-    if (!GEMINI_KEY) return NextResponse.json({ error: 'AI not configured' }, { status: 500 })
-
-    const profile = userProfile || {}
-
-    const rawData = (profile.raw_scraped_data as any) || {}
-    const recentPosts = (rawData.recent_posts || []).slice(0, 8).map((p: any) => ({
-      likes: p.likes,
-      comments: p.comments,
-      type: p.type,
-      caption: (p.caption || '').slice(0, 120),
-      date: p.date,
-    }))
-
-    const specificContext = {
-      instagramHandle: profile.instagram_username || rawData.username || '',
-      actualBio: rawData.bio || profile.bio || '',
-      followerCount: profile.follower_count || rawData.follower_count || 0,
-      followingCount: profile.following_count || rawData.following_count || 0,
-      engagementRate: profile.engagement_rate || rawData.engagement_rate || 0,
-      postingFrequency: profile.posting_frequency || '',
-      topContentFormat: profile.top_content_type || '',
-      detectedNiche: profile.niche || '',
-      contentPillars: Array.isArray(profile.content_pillars) ? profile.content_pillars.join(', ') : '',
-      brandPersonality: profile.brand_personality || '',
-      audienceType: profile.audience_type || '',
-      recentPosts,
-      language: profile.language || 'English',
-      isVerified: rawData.is_verified || false,
-    }
-
-    const prompt = `You are a brand strategist and Instagram growth expert specializing in building US audiences for creators.
-
-CRITICAL RULES — NEVER violate these:
-1. NEVER use "she", "her", "they", "the creator", "this model", "this account". Always write directly using "you" and "your".
-2. Reference the ACTUAL data below. Never give generic advice that could apply to any account.
-3. Every recommendation must cite something specific from their real bio, real posts, or real metrics.
-4. If bio is empty or posts are sparse, acknowledge that and give targeted advice based on what IS available.
-
-REAL ACCOUNT DATA:
-${JSON.stringify(specificContext, null, 2)}
-
-Based on this SPECIFIC account's actual data, build their complete US growth strategy. Return JSON:`
-
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
+async function callGemini(prompt: string, retries = 2): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(45000),
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
@@ -62,10 +18,7 @@ Based on this SPECIFIC account's actual data, build their complete US growth str
             responseSchema: {
               type: 'OBJECT',
               properties: {
-                brandStatement: { type: 'STRING' },
                 uniqueAngle: { type: 'STRING' },
-                brandVoice: { type: 'STRING' },
-                visualIdentity: { type: 'STRING' },
                 contentPillars: {
                   type: 'ARRAY',
                   items: {
@@ -78,8 +31,18 @@ Based on this SPECIFIC account's actual data, build their complete US growth str
                   },
                 },
                 audienceShiftPlan: { type: 'STRING' },
-                formatFatigueAlert: { type: 'STRING' },
-                top5ContentVariations: { type: 'ARRAY', items: { type: 'STRING' } },
+                top5ContentVariations: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      idea: { type: 'STRING' },
+                      hook: { type: 'STRING' },
+                      format: { type: 'STRING' },
+                      cta: { type: 'STRING' },
+                    },
+                  },
+                },
                 profileOptimization: {
                   type: 'OBJECT',
                   properties: {
@@ -88,51 +51,126 @@ Based on this SPECIFIC account's actual data, build their complete US growth str
                     highlightStrategy: { type: 'STRING' },
                   },
                 },
-                filmingEnvironment: {
-                  type: 'OBJECT',
-                  properties: {
-                    mustRemove: { type: 'ARRAY', items: { type: 'STRING' } },
-                    mustAdd: { type: 'ARRAY', items: { type: 'STRING' } },
-                    outfitRecommendations: { type: 'ARRAY', items: { type: 'STRING' } },
-                    lightingSetup: { type: 'STRING' },
-                  },
-                },
-                weeklySchedule: {
-                  type: 'OBJECT',
-                  properties: {
-                    monday: { type: 'STRING' },
-                    tuesday: { type: 'STRING' },
-                    wednesday: { type: 'STRING' },
-                    thursday: { type: 'STRING' },
-                    friday: { type: 'STRING' },
-                    saturday: { type: 'STRING' },
-                    sunday: { type: 'STRING' },
-                  },
-                },
-                '30dayMilestones': { type: 'ARRAY', items: { type: 'STRING' } },
-                warningSignals: { type: 'ARRAY', items: { type: 'STRING' } },
+                viralHookFormulas: { type: 'ARRAY', items: { type: 'STRING' } },
+                contentGaps: { type: 'ARRAY', items: { type: 'STRING' } },
               },
-              required: ['brandStatement', 'uniqueAngle', 'brandVoice', 'contentPillars', 'audienceShiftPlan', 'weeklySchedule'],
+              required: [
+                'uniqueAngle',
+                'contentPillars',
+                'audienceShiftPlan',
+                'top5ContentVariations',
+                'profileOptimization',
+                'viralHookFormulas',
+                'contentGaps',
+              ],
             },
             temperature: 0.8,
             maxOutputTokens: 6000,
           },
         }),
-      }
-    )
+      })
 
-    const data = await res.json()
-    if (!res.ok) {
-      if (res.status === 429) return NextResponse.json({ error: 'AI limit reached. Wait a moment.' }, { status: 429 })
-      return NextResponse.json({ error: data.error?.message || 'AI unavailable' }, { status: res.status })
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (res.status === 429) throw new Error('RATE_LIMIT')
+        if ((res.status === 503 || res.status === 500) && attempt < retries) {
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+          continue
+        }
+        throw new Error(data.error?.message || `Gemini error ${res.status}`)
+      }
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!text) {
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+          continue
+        }
+        throw new Error('Empty response from Gemini')
+      }
+
+      const clean = text.trim().replace(/^```json|```$/g, '').trim()
+      return JSON.parse(clean)
+
+    } catch (err: any) {
+      if (err.message === 'RATE_LIMIT') throw err
+      if (attempt === retries) throw err
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+    }
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!GEMINI_KEY) {
+      return NextResponse.json({ error: 'AI not configured' }, { status: 500 })
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!text) return NextResponse.json({ error: 'Empty response' }, { status: 500 })
+    const { userProfile } = await request.json()
+    const profile = userProfile || {}
 
-    return NextResponse.json(JSON.parse(text.trim()))
+    const rawData = (profile.raw_scraped_data as any) || {}
+    const recentPosts = (rawData.recent_posts || []).slice(0, 5).map((p: any) => ({
+      likes: p.likes,
+      comments: p.comments,
+      type: p.type,
+      caption: (p.caption || '').slice(0, 80),
+      date: p.date,
+    }))
+
+    const specificContext = {
+      instagramHandle: profile.instagram_username || rawData.username || '',
+      actualBio: rawData.bio || profile.bio || '',
+      followerCount: profile.follower_count || rawData.follower_count || 0,
+      followingCount: profile.following_count || rawData.following_count || 0,
+      engagementRate: profile.engagement_rate || rawData.engagement_rate || 0,
+      postingFrequency: profile.posting_frequency || '',
+      topContentFormat: profile.top_content_type || '',
+      detectedNiche: profile.niche || '',
+      contentPillars: Array.isArray(profile.content_pillars)
+        ? profile.content_pillars.join(', ')
+        : '',
+      brandPersonality: profile.brand_personality || '',
+      audienceType: profile.audience_type || '',
+      recentPosts,
+      language: profile.language || 'English',
+      isVerified: rawData.is_verified || false,
+    }
+
+    const prompt = `You are a no-fluff Instagram growth strategist specializing in building US audiences. Your job is to give advice so specific it could only apply to THIS account — not any other.
+
+CRITICAL RULES — NEVER violate these:
+1. NEVER use "she", "her", "they", "the creator", "this account". Always use "you" and "your".
+2. NEVER give advice that could apply to any account. Every sentence must reference something real from the data: a specific post, the actual bio, the exact engagement rate, the real follower count.
+3. If a field has no data (empty bio, no posts), say exactly what's missing and give the most targeted advice possible based on what IS there.
+4. No filler. No motivational fluff. Only sharp, actionable, specific recommendations.
+5. For viralHookFormulas: write 5 actual ready-to-use opening lines (not templates) tailored to their exact niche, voice, and top performing content.
+6. For contentGaps: identify specific content types their top posts suggest they should be doing MORE of but aren't — cite the actual post data.
+7. For top5ContentVariations: each must have a specific idea, a ready-to-use hook, the best format (Reel/Carousel/Static), and a CTA.
+8. For audienceShiftPlan: give a concrete week-by-week 30-day breakdown, not general advice.
+
+REAL ACCOUNT DATA:
+${JSON.stringify(specificContext, null, 2)}
+
+Return JSON only.`
+
+    const result = await callGemini(prompt)
+    return NextResponse.json(result)
+
   } catch (err: any) {
     console.error('Strategy error:', err)
+
+    if (err.message === 'RATE_LIMIT') {
+      return NextResponse.json({ error: 'AI limit reached. Wait a moment and try again.' }, { status: 429 })
+    }
+    if (err.name === 'TimeoutError' || err.message?.includes('timeout')) {
+      return NextResponse.json({ error: 'Request timed out. Please try again.' }, { status: 504 })
+    }
+    if (err instanceof SyntaxError) {
+      return NextResponse.json({ error: 'Invalid response from AI. Please try again.' }, { status: 500 })
+    }
+
     return NextResponse.json({ error: `Strategy failed: ${err.message}` }, { status: 500 })
   }
 }

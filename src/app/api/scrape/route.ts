@@ -120,7 +120,8 @@ export async function POST(request: NextRequest) {
           try {
             const media = await hikerGet(`/user/medias?user_id=${pk}&count=30`)
             console.log('[scrape] Media response keys:', Object.keys(media || {}))
-            const posts: any[] = (media.medias || media.items || media.response?.medias || []).slice(0, 30)
+            const rawMedia = media.medias || media.items || media.response?.medias || media
+            const posts: any[] = (Array.isArray(rawMedia) ? rawMedia : Object.values(rawMedia)).slice(0, 30)  
             console.log('[scrape] Posts fetched:', posts.length)
             if (posts.length > 0) {
               console.log('[scrape] Sample post keys:', Object.keys(posts[0] || {}))
@@ -140,9 +141,9 @@ export async function POST(request: NextRequest) {
               likes: p.like_count || 0,
               comments: p.comment_count || 0,
               views: p.view_count || p.video_view_count || 0,
-              caption: p.caption?.text || '',
+              caption: p.caption_text || p.caption?.text || '',
               hashtags: extractHashtags(p.caption?.text || ''),
-              date: p.taken_at ? new Date(p.taken_at * 1000).toISOString().split('T')[0] : '',
+              date: p.taken_at ? new Date(isNaN(Number(p.taken_at)) ? p.taken_at : Number(p.taken_at) * 1000).toISOString().split('T')[0] : '',
               type: mediaTypeName(p.media_type || 1),
             }))
 
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
               views: p.view_count || p.video_view_count || 0,
               caption: (p.caption?.text || '').slice(0, 100),
               type: mediaTypeName(p.media_type || 1),
-              timestamp: p.taken_at || '',
+              timestamp: p.taken_at ? new Date(isNaN(Number(p.taken_at)) ? p.taken_at : Number(p.taken_at) * 1000).toISOString() : '',
             }))
           } catch (mediaErr) {
             console.warn('[scrape] Media fetch failed (continuing without posts):', mediaErr)
@@ -303,10 +304,16 @@ Return exactly this JSON:
     const gemData = await gemRes.json()
     console.log('[scrape] Gemini raw response:', JSON.stringify(gemData).slice(0, 1000))
 
-    if (!gemRes.ok) {
-      console.error('[scrape] Gemini error:', JSON.stringify(gemData).slice(0, 300))
-      return NextResponse.json({ error: 'AI analysis failed', details: gemData.error?.message }, { status: gemRes.status })
-    }
+   if (!gemRes.ok) {
+  if (gemRes.status === 503) {
+    // Wait 3s and retry once
+    console.warn('[scrape] Gemini 503 — retrying in 3s...')
+    await new Promise(r => setTimeout(r, 3000))
+    // retry the whole Gemini call here
+  }
+  console.error('[scrape] Gemini error:', JSON.stringify(gemData).slice(0, 300))
+  return NextResponse.json({ error: 'AI analysis failed', details: gemData.error?.message }, { status: gemRes.status })
+}
 
     const text = gemData.candidates?.[0]?.content?.parts?.[0]?.text
     if (!text) {
