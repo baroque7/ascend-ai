@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
 
 function fallback() {
   return NextResponse.json([{
@@ -13,6 +14,73 @@ function fallback() {
     contentFormat: 'reel',
     whyThisWorks: 'Complete your profile setup to unlock niche-specific ideas.',
   }])
+}
+
+async function callGemini(prompt: string, retries = 2): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`${GEMINI_URL}?key=${GEMINI_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(45000),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  title: { type: 'STRING' },
+                  trendingTopic: { type: 'STRING' },
+                  script: { type: 'STRING' },
+                  caption: { type: 'STRING' },
+                  hashtags: { type: 'STRING' },
+                  postingTime: { type: 'STRING' },
+                  contentFormat: { type: 'STRING' },
+                  whyThisWorks: { type: 'STRING' },
+                },
+                required: ['title', 'script', 'caption', 'hashtags', 'postingTime', 'contentFormat', 'whyThisWorks'],
+              },
+            },
+            temperature: 1.0,
+            maxOutputTokens: 5000,
+          },
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (res.status === 429) throw new Error('RATE_LIMIT')
+        if ((res.status === 503 || res.status === 500) && attempt < retries) {
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+          continue
+        }
+        throw new Error(data.error?.message || `Gemini error ${res.status}`)
+      }
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!text) {
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+          continue
+        }
+        throw new Error('Empty response from Gemini')
+      }
+
+      const clean = text.trim().replace(/^```json|```$/g, '').trim()
+      const parsed = JSON.parse(clean)
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Invalid response shape')
+      return parsed
+
+    } catch (err: any) {
+      if (err.message === 'RATE_LIMIT') throw err
+      if (attempt === retries) throw err
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -35,15 +103,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[generate] Generating for niche:', niche, '| followers:', followers, '| language:', userLanguage)
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are a top-tier viral content writer who creates scripts for real Instagram creators — not corporate brands, not generic advice pages. You write the way actual creators talk: conversational, direct, specific, a little unfiltered.
+    const prompt = `You are a top-tier viral content writer who creates scripts for real Instagram creators — not corporate brands, not generic advice pages. You write the way actual creators talk: conversational, direct, specific, a little unfiltered.
 
 CREATOR INFO:
 - Niche: ${niche}
@@ -78,52 +138,21 @@ EXAMPLE of correct format:
 EXAMPLE of WRONG format (never do this):
 "Hey guys, today I want to share my morning routine with you. First I wake up at 7am..."
 
-Generate exactly 5 ideas. Return a JSON array:
-[{"title":"punchy 4-6 word title — make it sound human not AI","trendingTopic":"one specific US trend or cultural moment this taps","script":"filming direction in ${userLanguage} — 80-120 words describing exactly what to film, how to move, what to wear, how to edit — NOT a script to read aloud","caption":"punchy English caption under 140 chars — no generic phrases like 'check this out' or 'you need to see this'","hashtags":"15 highly specific US-targeted hashtags relevant to ${niche}","postingTime":"specific time in EST with one-sentence reason based on ${audienceType} behavior","contentFormat":"reel or carousel or photo — choose the best fit for this specific idea","whyThisWorks":"one very specific sentence explaining why THIS idea will stop THIS audience from scrolling"}]`,
-            }],
-          }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'ARRAY',
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  title: { type: 'STRING' },
-                  trendingTopic: { type: 'STRING' },
-                  script: { type: 'STRING' },
-                  caption: { type: 'STRING' },
-                  hashtags: { type: 'STRING' },
-                  postingTime: { type: 'STRING' },
-                  contentFormat: { type: 'STRING' },
-                  whyThisWorks: { type: 'STRING' },
-                },
-                required: ['title', 'script', 'caption', 'hashtags', 'postingTime', 'contentFormat', 'whyThisWorks'],
-              },
-            },
-            temperature: 1.0,
-            maxOutputTokens: 8000,
-          },
-        }),
-      }
-    )
+Generate exactly 5 ideas. Return a JSON array.`
 
-    console.log('[generate] Gemini status:', res.status)
-    const data = await res.json()
-    if (!res.ok) {
-      console.error('[generate] Gemini error:', JSON.stringify(data).slice(0, 300))
-      return fallback()
+    const result = await callGemini(prompt)
+    return NextResponse.json(result)
+
+  } catch (err: any) {
+    console.error('[generate] Error:', err)
+
+    if (err.message === 'RATE_LIMIT') {
+      return NextResponse.json({ error: 'AI limit reached. Please try again in a moment.' }, { status: 429 })
+    }
+    if (err.name === 'TimeoutError' || err.message?.includes('timeout')) {
+      return NextResponse.json({ error: 'Request timed out. Please try again.' }, { status: 504 })
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    if (!text) return fallback()
-
-    const parsed = JSON.parse(text.trim())
-    if (!Array.isArray(parsed) || parsed.length === 0) return fallback()
-
-    return NextResponse.json(parsed)
-  } catch (err) {
-    console.error('[generate] Error:', err)
     return fallback()
   }
 }

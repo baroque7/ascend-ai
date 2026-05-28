@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/contexts/AuthContext'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -34,9 +34,17 @@ export default function TodayPage() {
   const [error, setError] = useState('')
   const [expanded, setExpanded] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const hasTriggered = useRef(false)
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const todayDate = new Date().toISOString().split('T')[0]
+
+  useEffect(() => {
+    if (!profileLoading && user && profile && !hasTriggered.current) {
+      hasTriggered.current = true
+      load()
+    }
+  }, [profileLoading, user?.id, profile?.instagram_username]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load(forceRefresh = false) {
     if (!user) return
@@ -45,7 +53,7 @@ export default function TodayPage() {
     setExpanded(null)
 
     try {
-      // Check 24h cache first
+      // Check cache first
       if (!forceRefresh) {
         const { data: cached } = await supabase
           .from('content')
@@ -61,6 +69,11 @@ export default function TodayPage() {
         }
       }
 
+      if (!profile) {
+        setLoading(false)
+        return
+      }
+
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,25 +82,39 @@ export default function TodayPage() {
           language: profile?.language || 'English',
         }),
       })
+
       const data = await res.json()
+
+      // Handle rate limit explicitly
+      if (res.status === 429) {
+        setError('AI is busy right now. Wait a moment and tap to retry.')
+        setLoading(false)
+        return
+      }
+
+      if (!res.ok || data.error) {
+        setError('Could not load ideas. Tap to retry.')
+        setLoading(false)
+        return
+      }
+
       if (!Array.isArray(data)) throw new Error('Bad response')
       setIdeas(data)
 
-      await supabase.from('content').upsert({
+      const { error: upsertError } = await supabase.from('content').upsert({
         user_id: user.id,
         date: todayDate,
         ideas: data,
       }, { onConflict: 'user_id,date' })
 
+      if (upsertError) console.error('UPSERT ERROR:', upsertError)
+
     } catch {
       setError('Could not load ideas. Tap to retry.')
     }
+
     setLoading(false)
   }
-
-  useEffect(() => {
-    if (!profileLoading && user) load()
-  }, [profileLoading, user?.id, profile?.niche]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function copy(text: string, key: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -101,7 +128,7 @@ export default function TodayPage() {
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
 
-      {/* Header — no refresh button */}
+      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <p style={{ color: '#333', fontSize: 12, margin: '0 0 4px' }}>{today}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -123,7 +150,7 @@ export default function TodayPage() {
       </div>
 
       {error && (
-        <button onClick={() => load(true)}
+        <button onClick={() => { hasTriggered.current = false; load() }}
           style={{ width: '100%', background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center', cursor: 'pointer' }}>
           <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>{error}</p>
         </button>
@@ -139,7 +166,7 @@ export default function TodayPage() {
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
               style={{ background: '#0a0a0a', border: `1px solid ${isOpen ? 'rgba(255,215,0,0.25)' : '#1a1a1a'}`, borderRadius: 16, marginBottom: 12, overflow: 'hidden' }}>
 
-              {/* Card header — tap to expand */}
+              {/* Card header */}
               <button onClick={() => setExpanded(isOpen ? null : i)}
                 style={{ width: '100%', border: 'none', background: 'none', padding: '18px 18px 14px', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
