@@ -25,9 +25,59 @@ async function hikerGet(path: string) {
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     console.error('[scrape] HikerAPI error body:', body)
+    if (res.status === 404) {
+      throw { code: 'USER_NOT_FOUND', message: `Account not found: ${path}` }
+    }
     throw new Error(`HikerAPI ${res.status}: ${body.slice(0, 200)}`)
   }
   return res.json()
+}
+
+async function callGemini(payload: any, retries = 2): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(40000),
+          body: JSON.stringify(payload),
+        }
+      )
+
+      console.log('[scrape] Gemini response status:', res.status)
+      const data = await res.json()
+      console.log('[scrape] Gemini raw response:', JSON.stringify(data).slice(0, 1000))
+
+      if (!res.ok) {
+        if (res.status === 429) throw new Error('RATE_LIMIT')
+        if ((res.status === 503 || res.status === 500) && attempt < retries) {
+          console.warn(`[scrape] Gemini ${res.status} — retrying in ${1500 * (attempt + 1)}ms...`)
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+          continue
+        }
+        throw new Error(data.error?.message || `Gemini error ${res.status}`)
+      }
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!text) {
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+          continue
+        }
+        throw new Error('Empty response from Gemini')
+      }
+
+      const clean = text.trim().replace(/^```json|```$/g, '').trim()
+      return JSON.parse(clean)
+
+    } catch (err: any) {
+      if (err.message === 'RATE_LIMIT') throw err
+      if (attempt === retries) throw err
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)))
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -57,48 +107,24 @@ export async function POST(request: NextRequest) {
         console.log('[scrape] RAW HikerAPI userInfo:', JSON.stringify(userInfo).slice(0, 3000))
         console.log('[scrape] HikerAPI user keys:', Object.keys(userInfo || {}))
 
-        // Try every known field name for follower/following counts (snake_case + camelCase variants)
         const followerCount =
-          userInfo.follower_count ??
-          userInfo.followerCount ??
-          userInfo.followers ??
-          userInfo.followersCount ??
-          userInfo.edge_followed_by?.count ??
-          userInfo.user?.follower_count ??
-          userInfo.user?.followerCount ??
-          userInfo.user?.followers ??
-          0
+          userInfo.follower_count ?? userInfo.followerCount ?? userInfo.followers ??
+          userInfo.followersCount ?? userInfo.edge_followed_by?.count ??
+          userInfo.user?.follower_count ?? userInfo.user?.followerCount ?? userInfo.user?.followers ?? 0
 
         const followingCount =
-          userInfo.following_count ??
-          userInfo.followingCount ??
-          userInfo.following ??
-          userInfo.user?.following_count ??
-          userInfo.user?.followingCount ??
-          0
+          userInfo.following_count ?? userInfo.followingCount ?? userInfo.following ??
+          userInfo.user?.following_count ?? userInfo.user?.followingCount ?? 0
 
         const postCount =
-          userInfo.media_count ??
-          userInfo.mediaCount ??
-          userInfo.post_count ??
-          userInfo.user?.media_count ??
-          userInfo.user?.mediaCount ??
-          0
+          userInfo.media_count ?? userInfo.mediaCount ?? userInfo.post_count ??
+          userInfo.user?.media_count ?? userInfo.user?.mediaCount ?? 0
 
-        const bio =
-          userInfo.biography ??
-          userInfo.bio ??
-          userInfo.user?.biography ??
-          ''
+        const bio = userInfo.biography ?? userInfo.bio ?? userInfo.user?.biography ?? ''
 
         const pk =
-          userInfo.pk ??
-          userInfo.id ??
-          userInfo.userId ??
-          userInfo.user_id ??
-          userInfo.user?.pk ??
-          userInfo.user?.id ??
-          ''
+          userInfo.pk ?? userInfo.id ?? userInfo.userId ?? userInfo.user_id ??
+          userInfo.user?.pk ?? userInfo.user?.id ?? ''
 
         console.log('[scrape] Extracted — followers:', followerCount, '| following:', followingCount, '| posts:', postCount, '| pk:', pk)
 
@@ -121,14 +147,13 @@ export async function POST(request: NextRequest) {
             const media = await hikerGet(`/user/medias?user_id=${pk}&count=30`)
             console.log('[scrape] Media response keys:', Object.keys(media || {}))
             const rawMedia = media.medias || media.items || media.response?.medias || media
-            const posts: any[] = (Array.isArray(rawMedia) ? rawMedia : Object.values(rawMedia)).slice(0, 30)  
+            const posts: any[] = (Array.isArray(rawMedia) ? rawMedia : Object.values(rawMedia)).slice(0, 30)
             console.log('[scrape] Posts fetched:', posts.length)
             if (posts.length > 0) {
               console.log('[scrape] Sample post keys:', Object.keys(posts[0] || {}))
               console.log('[scrape] Sample post:', JSON.stringify(posts[0]).slice(0, 500))
             }
 
-            // Engagement = (total likes + comments on last 12 posts) / (followers × 12) × 100
             const last12 = posts.slice(0, 12)
             const totalEng = last12.reduce((s, p) => s + (p.like_count || 0) + (p.comment_count || 0), 0)
             realEngagement = followerCount > 0 && last12.length > 0
@@ -147,7 +172,6 @@ export async function POST(request: NextRequest) {
               type: mediaTypeName(p.media_type || 1),
             }))
 
-            // Optimized subset for Gemini (12 posts, capped captions)
             recentPostsForGemini = posts.slice(0, 12).map(p => ({
               likes: p.like_count || 0,
               comments: p.comment_count || 0,
@@ -160,7 +184,14 @@ export async function POST(request: NextRequest) {
             console.warn('[scrape] Media fetch failed (continuing without posts):', mediaErr)
           }
         }
-      } catch (hikerErr) {
+      } catch (hikerErr: any) {
+        if (hikerErr.code === 'USER_NOT_FOUND') {
+          console.warn('[scrape] Account not found:', handle)
+          return NextResponse.json({
+            error: 'USER_NOT_FOUND',
+            message: `We couldn't find the Instagram account @${handle}.`,
+          }, { status: 404 })
+        }
         console.warn('[scrape] HikerAPI profile fetch failed — falling back to Gemini-only:', hikerErr)
         hikerSuccess = false
       }
@@ -168,8 +199,7 @@ export async function POST(request: NextRequest) {
       console.warn('[scrape] HIKERAPI_KEY not set — Gemini will estimate from username only')
     }
 
-    // ── Step 1: Save HikerAPI raw data immediately, before Gemini ─────────
-    // This lets the home screen show real follower counts right away.
+    // ── Step 1: Save HikerAPI raw data immediately ─────────────
     if (userId && hikerSuccess) {
       const partialAdmin = SERVICE_ROLE_KEY ? createClient(SUPABASE_URL, SERVICE_ROLE_KEY) : null
       if (partialAdmin) {
@@ -194,7 +224,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Build optimized Gemini payload (strip noise) ──────────
+    // ── Build optimized Gemini payload ────────────────────────
     const optimizedForGemini = {
       username: handle,
       bio: scrapedData.bio || '',
@@ -208,17 +238,11 @@ export async function POST(request: NextRequest) {
 
     console.log('[scrape] Sending to Gemini optimizedData:', JSON.stringify(optimizedForGemini))
 
-    // ── Step 2: Gemini analysis (30s timeout) ────────────────────
-    const gemRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(30000),
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `You are an elite Instagram growth strategist. Analyse this Instagram profile and return a JSON object.
+    // ── Step 2: Gemini analysis ───────────────────────────────
+    const gemPayload = {
+      contents: [{
+        parts: [{
+          text: `You are an elite Instagram growth strategist. Analyse this Instagram profile and return a JSON object.
 CRITICAL RULES:
 - NEVER use she/her/the creator. Always use "you/your" when writing advice.
 - Use ONLY the real data provided. Do NOT hallucinate or invent followers, engagement, or post metrics.
@@ -234,7 +258,7 @@ A ${optimizedForGemini.followerCount >= 100000 ? '100k+' : optimizedForGemini.fo
 
 Return exactly this JSON:
 {
-"brandScore": calculated score using the weights above — a ${optimizedForGemini.followerCount} follower account starts at the follower tier score minimum,
+"brandScore": calculated score using the weights above,
 "niche": "very specific niche e.g. Latina Fitness Model not just Fitness — based on bio and post captions",
 "engagementRate": ${optimizedForGemini.engagementRate > 0 ? optimizedForGemini.engagementRate : 'estimate from post likes/comments vs followers'},
 "audienceType": "honest description of current audience demographic",
@@ -259,78 +283,53 @@ Return exactly this JSON:
 "weeklyPlan": "day by day plan using you/your — Mon: post X, Tue: post Y format",
 "bioRewrite": "rewrite bio in first person as if the creator is writing it themselves"
 }`,
-            }],
-          }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'OBJECT',
-              properties: {
-                brandScore: { type: 'NUMBER' },
-                niche: { type: 'STRING' },
-                engagementRate: { type: 'NUMBER' },
-                audienceType: { type: 'STRING' },
-                isHispanicAudience: { type: 'BOOLEAN' },
-                brandIdentity: { type: 'STRING' },
-                brandPersonality: { type: 'STRING' },
-                contentPillars: { type: 'ARRAY', items: { type: 'STRING' } },
-                whatMakesThemUnique: { type: 'STRING' },
-                currentProblems: { type: 'ARRAY', items: { type: 'STRING' } },
-                profileScore: { type: 'NUMBER' },
-                profileAuthenticityIssues: { type: 'STRING' },
-                postingFrequency: { type: 'STRING' },
-                bestPostingTimes: { type: 'ARRAY', items: { type: 'STRING' } },
-                topPerformingContentType: { type: 'STRING' },
-                formatFatigue: { type: 'BOOLEAN' },
-                formatFatigueWarning: { type: 'STRING' },
-                usGrowthStrategy: { type: 'STRING' },
-                hispanicToUSShift: { type: 'STRING' },
-                filmingEnvironmentTips: { type: 'STRING' },
-                hashtagStrategy: { type: 'STRING' },
-                contentVariations: { type: 'ARRAY', items: { type: 'STRING' } },
-                weeklyPlan: { type: 'STRING' },
-                bioRewrite: { type: 'STRING' },
-              },
-              required: ['brandScore', 'niche', 'brandIdentity', 'brandPersonality', 'contentPillars', 'usGrowthStrategy'],
-            },
-            temperature: 0.7,
-            maxOutputTokens: 8192,
+        }],
+      }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            brandScore: { type: 'NUMBER' },
+            niche: { type: 'STRING' },
+            engagementRate: { type: 'NUMBER' },
+            audienceType: { type: 'STRING' },
+            isHispanicAudience: { type: 'BOOLEAN' },
+            brandIdentity: { type: 'STRING' },
+            brandPersonality: { type: 'STRING' },
+            contentPillars: { type: 'ARRAY', items: { type: 'STRING' } },
+            whatMakesThemUnique: { type: 'STRING' },
+            currentProblems: { type: 'ARRAY', items: { type: 'STRING' } },
+            profileScore: { type: 'NUMBER' },
+            profileAuthenticityIssues: { type: 'STRING' },
+            postingFrequency: { type: 'STRING' },
+            bestPostingTimes: { type: 'ARRAY', items: { type: 'STRING' } },
+            topPerformingContentType: { type: 'STRING' },
+            formatFatigue: { type: 'BOOLEAN' },
+            formatFatigueWarning: { type: 'STRING' },
+            usGrowthStrategy: { type: 'STRING' },
+            hispanicToUSShift: { type: 'STRING' },
+            filmingEnvironmentTips: { type: 'STRING' },
+            hashtagStrategy: { type: 'STRING' },
+            contentVariations: { type: 'ARRAY', items: { type: 'STRING' } },
+            weeklyPlan: { type: 'STRING' },
+            bioRewrite: { type: 'STRING' },
           },
-        }),
-      }
-    )
-
-    console.log('[scrape] Gemini response status:', gemRes.status)
-    const gemData = await gemRes.json()
-    console.log('[scrape] Gemini raw response:', JSON.stringify(gemData).slice(0, 1000))
-
-   if (!gemRes.ok) {
-  if (gemRes.status === 503) {
-    // Wait 3s and retry once
-    console.warn('[scrape] Gemini 503 — retrying in 3s...')
-    await new Promise(r => setTimeout(r, 3000))
-    // retry the whole Gemini call here
-  }
-  console.error('[scrape] Gemini error:', JSON.stringify(gemData).slice(0, 300))
-  return NextResponse.json({ error: 'AI analysis failed', details: gemData.error?.message }, { status: gemRes.status })
-}
-
-    const text = gemData.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!text) {
-      console.error('[scrape] Gemini returned empty text, full response:', JSON.stringify(gemData).slice(0, 500))
-      return NextResponse.json({ error: 'Empty AI response' }, { status: 500 })
+          required: ['brandScore', 'niche', 'brandIdentity', 'brandPersonality', 'contentPillars', 'usGrowthStrategy'],
+        },
+        temperature: 0.7,
+        maxOutputTokens: 5000,
+      },
     }
 
-    const analysis = JSON.parse(text.trim())
-    // Always use real HikerAPI engagement if available, else fall back to Gemini estimate
+    const analysis = await callGemini(gemPayload)
     const engagementRate = realEngagement > 0 ? realEngagement : (analysis.engagementRate || 0)
-    // Always use real HikerAPI follower count
     const finalFollowerCount = scrapedData.follower_count || 0
     const finalFollowingCount = scrapedData.following_count || 0
 
     console.log('[scrape] Analysis complete — brandScore:', analysis.brandScore, '| niche:', analysis.niche, '| followers:', finalFollowerCount, '| engagement:', engagementRate)
 
-    // ── Save to Supabase via service role (if key available) ───
+    // ── Save to Supabase via service role ─────────────────────
     if (userId && SERVICE_ROLE_KEY) {
       console.log('[scrape] Writing to Supabase via service role...')
       try {
@@ -394,6 +393,9 @@ Return exactly this JSON:
     })
   } catch (err: any) {
     console.error('[scrape] Unhandled error:', err)
+    if (err.message === 'RATE_LIMIT') {
+      return NextResponse.json({ error: 'AI limit reached. Please try again.' }, { status: 429 })
+    }
     return NextResponse.json({ error: `Scrape failed: ${err.message}` }, { status: 500 })
   }
 }

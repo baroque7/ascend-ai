@@ -7,12 +7,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 const PROMO_CODE = 'MIHAWK41'
 
 export default function Payment() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, loading } = useAuth()
   const [promo, setPromo] = useState('')
   const [promoError, setPromoError] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
+
+  if (loading) return (
+    <div style={{ background: '#000', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 40, height: 40, border: '3px solid #1a1a1a', borderTopColor: '#FFD700', borderRadius: '50%' }} />
+    </div>
+  )
 
   async function handlePromo(e: React.SyntheticEvent) {
     e.preventDefault()
@@ -25,18 +31,16 @@ export default function Payment() {
     setPromoError('')
 
     try {
-      // Update auth metadata using the authenticated supabase client from useAuth
       const { error: authErr } = await supabase.auth.updateUser({
         data: { subscription_status: 'active', is_promo: true, promo_code: PROMO_CODE },
       })
       if (authErr) throw authErr
 
-      // Mirror to users table so the dashboard reads it correctly
       await supabase.from('users').upsert(
         { id: user.id, is_promo: true },
         { onConflict: 'id' }
       )
-
+      console.log('[payment] promo success — user:', user?.id)
       window.location.href = '/onboarding'
     } catch (err: any) {
       setPromoError(err.message || 'Something went wrong. Try again.')

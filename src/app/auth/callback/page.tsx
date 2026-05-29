@@ -20,6 +20,7 @@ function CallbackContent() {
     async function handleCallback() {
       const type = searchParams.get('type')
       const code = searchParams.get('code')
+      const tokenHash = searchParams.get('token_hash')
       const errorParam = searchParams.get('error')
       const errorDescription = searchParams.get('error_description')
 
@@ -36,16 +37,26 @@ function CallbackContent() {
           setMessage(error.message)
           return
         }
+      } else if (tokenHash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type as any,
+        })
+        if (error) {
+          setStatus('error')
+          setMessage(error.message)
+          return
+        }
       }
 
       if (type === 'recovery') {
         setStatus('success')
         setMessage('Password reset successful! Redirecting…')
-        setTimeout(() => router.push('/dashboard/settings'), 2000)
+        setTimeout(() => router.push('/reset-password'), 2000)
       } else if (type === 'signup') {
         setStatus('success')
-        setMessage('Email verified! Redirecting to your dashboard…')
-        setTimeout(() => router.push('/dashboard'), 2000)
+        setMessage('Email verified! Redirecting to payment…')
+        setTimeout(() => router.push('/payment'), 2000)
       } else {
         setStatus('success')
         setMessage('Authenticated! Redirecting…')

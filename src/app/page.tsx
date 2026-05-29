@@ -104,14 +104,14 @@ export default function Landing() {
             <AnimatedWord word="Brand" delay={0.53} />
           </h1>
           <h1 style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-1.5px', margin: '4px 0 0' }}>
-            <AnimatedWord word="American" delay={0.6} />{' '}
+            <AnimatedWord word="Americans" delay={0.6} />{' '}
             <motion.span
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.68, ease: [0.22, 1, 0.36, 1] }}
               style={{ display: 'inline-block', color: '#FFD700' }}
             >
-              Men Can't Ignore.
+              Can't Ignore.
             </motion.span>
           </h1>
         </div>
