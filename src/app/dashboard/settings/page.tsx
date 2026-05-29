@@ -13,6 +13,8 @@ export default function SettingsPage() {
   const [language, setLanguage] = useState('English')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [scraping, setScraping] = useState(false)
+  const [error, setError] = useState('')
   const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
@@ -27,24 +29,80 @@ export default function SettingsPage() {
 
   async function save() {
     setSaving(true)
-    const cleanHandle = handle.replace('@', '').trim()
+    setError('')
+    const cleanHandle = handle.replace('@', '').trim().toLowerCase()
     const hadHandle = profile?.instagram_username
     const handleChanged = cleanHandle !== hadHandle
 
+    // Always save language to auth metadata
     await supabase.auth.updateUser({ data: { instagram_handle: cleanHandle, language } })
-    await updateProfile({ instagram_username: cleanHandle, language })
 
-    if (handleChanged && cleanHandle) {
-      fetch('/api/scrape', {
+    // If only language changed, save and done
+    if (!handleChanged) {
+      await updateProfile({ language })
+      setSaving(false)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      return
+    }
+
+    // Username changed — scrape handles ALL database writes
+    setSaving(false)
+    setScraping(true)
+
+    try {
+      // Update users table with new username BEFORE scrape
+      await supabase.from('users').update({
+        instagram_username: cleanHandle,
+        language,
+      }).eq('id', user?.id)
+
+      const res = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: cleanHandle, userId: user?.id }),
-      }).catch(() => {})
-    }
+      })
 
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+      const json = await res.json()
+
+      if (res.status === 404 && json.error === 'USER_NOT_FOUND') {
+        setError(`Could not find @${cleanHandle} on Instagram. Check the username and try again.`)
+        setScraping(false)
+        return
+      }
+
+      if (json.error) {
+        setError('Profile analysis failed. Your username was saved — try refreshing later.')
+        setScraping(false)
+        return
+      }
+
+      // Update auth metadata with new name
+      if (json.scrapedData?.full_name) {
+        await supabase.auth.updateUser({ data: { hiker_full_name: json.scrapedData.full_name } })
+      }
+
+      // Clear old caches so fresh data generates on next visit
+      if (user) {
+        const todayDate = new Date().toISOString().split('T')[0]
+
+        // Clear strategy cache
+        await supabase.from('strategy').delete().eq('user_id', user.id)
+        console.log('[settings] strategy cache cleared')
+
+        // Clear today's content cache
+        await supabase.from('content').delete().eq('user_id', user.id).eq('date', todayDate)
+        console.log('[settings] today content cache cleared')
+      }
+
+      setScraping(false)
+      setSaved(true)
+      setTimeout(() => { window.location.replace('/dashboard') }, 1500)
+
+    } catch {
+      setError('Something went wrong during analysis. Your username was saved.')
+      setScraping(false)
+    }
   }
 
   async function handleSignOut() {
@@ -79,6 +137,13 @@ export default function SettingsPage() {
           </span>
         </div>
       </motion.div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, textAlign: 'center' }}>
+          <p style={{ color: '#ff6b6b', fontSize: 13, margin: 0 }}>{error}</p>
+        </div>
+      )}
 
       {/* Instagram Handle */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ marginBottom: 14 }}>
@@ -115,11 +180,11 @@ export default function SettingsPage() {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} style={{ marginBottom: 32 }}>
         <motion.button
           onClick={save}
-          disabled={saving}
+          disabled={saving || scraping}
           whileTap={{ scale: 0.98 }}
-          style={{ width: '100%', padding: '15px', background: saved ? '#0a0a0a' : '#FFD700', border: saved ? '1px solid rgba(255,215,0,0.3)' : 'none', borderRadius: 50, color: saved ? '#FFD700' : '#000', fontSize: 16, fontWeight: 900, cursor: saving ? 'default' : 'pointer' }}
+          style={{ width: '100%', padding: '15px', background: saved ? '#0a0a0a' : '#FFD700', border: saved ? '1px solid rgba(255,215,0,0.3)' : 'none', borderRadius: 50, color: saved ? '#FFD700' : '#000', fontSize: 16, fontWeight: 900, cursor: saving || scraping ? 'default' : 'pointer' }}
         >
-          {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Changes'}
+          {saving ? 'Saving…' : scraping ? 'Analyzing new profile…' : saved ? '✓ Saved' : 'Save Changes'}
         </motion.button>
       </motion.div>
 

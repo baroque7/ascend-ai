@@ -23,7 +23,7 @@ export default function SignUp() {
   // Tab sync — when user verifies in another tab, redirect this tab to /payment
   useEffect(() => {
     if (!sent) return
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_IN' && session) {
         window.location.href = '/payment'
       }
