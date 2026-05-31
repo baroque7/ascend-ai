@@ -1,19 +1,18 @@
+import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 function fallback() {
-  return NextResponse.json([{
-    title: 'Setting up your content strategy…',
-    trendingTopic: '',
-    script: 'Your personalized content ideas will appear here once your profile analysis is complete.',
-    caption: 'Something great is coming.',
-    hashtags: '#instagram #growth #content',
-    postingTime: '7:00 PM EST',
-    contentFormat: 'reel',
-    whyThisWorks: 'Complete your profile setup to unlock niche-specific ideas.',
-  }])
+  return NextResponse.json(
+    { error: 'Content generation unavailable. Please try again.' },
+    { status: 500 }
+  )
 }
 
 async function callGemini(prompt: string, retries = 2): Promise<any> {
@@ -85,8 +84,28 @@ async function callGemini(prompt: string, retries = 2): Promise<any> {
 
 export async function POST(request: NextRequest) {
   try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const body = await request.json()
-    const { userProfile, language } = body
+    const { userProfile, language, date } = body
 
     if (!GEMINI_KEY) return fallback()
 
@@ -95,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     const niche = profile.niche || 'Lifestyle'
     const personality = profile.brand_personality || 'authentic'
-    const followers = profile.follower_count || 0
+    const followers = profile.follower_count ?? 0
     const topFormat = profile.top_content_type || 'Reels'
     const pillars = Array.isArray(profile.content_pillars) ? profile.content_pillars.join(', ') : ''
     const postingTimes = Array.isArray(profile.best_posting_times) ? profile.best_posting_times.join(', ') : '6-9 PM EST'
@@ -141,6 +160,19 @@ EXAMPLE of WRONG format (never do this):
 Generate exactly 5 ideas. Return a JSON array.`
 
     const result = await callGemini(prompt)
+
+    if (date && SERVICE_ROLE_KEY) {
+      try {
+        const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+        await admin.from('content').upsert(
+          { user_id: user.id, date, ideas: result },
+          { onConflict: 'user_id,date' }
+        )
+      } catch (e) {
+        console.warn('[generate] Cache save failed (non-fatal):', e)
+      }
+    }
+
     return NextResponse.json(result)
 
   } catch (err: any) {
@@ -157,14 +189,3 @@ Generate exactly 5 ideas. Return a JSON array.`
   }
 }
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const niche = searchParams.get('niche') || 'Lifestyle'
-  const language = searchParams.get('language') || 'English'
-  const fakeReq = new Request(request.url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userProfile: { niche, language }, language }),
-  })
-  return POST(new NextRequest(fakeReq))
-}

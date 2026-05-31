@@ -46,7 +46,7 @@ export default function Footer() {
                 {items.map((item) => (
                   <li key={item}>
                     <a
-                      href="#"
+                      href={item === 'Contact' ? '/contact' : item === 'Privacy Policy' ? '/privacy' : item === 'Terms of Service' ? '/terms' : '#'}
                       className="text-[#6060a0] hover:text-[#a78bfa] text-sm transition-colors duration-200"
                     >
                       {item}

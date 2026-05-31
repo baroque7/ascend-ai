@@ -2,11 +2,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
+import { normalizeHandle } from '@/lib/utils'
 
-const LANGUAGES = [
-  'English', 'Spanish', 'French', 'Portuguese', 'Arabic',
-  'Italian', 'German', 'Turkish', 'Hindi', 'Indonesian',
-]
+const LANGUAGES = ['English', 'Spanish']
 
 const SETUP_STEPS = [
   { id: 'welcome', emoji: '👋', title: 'Welcome to Ascend.AI', desc: "Let's build your personalized US growth strategy." },
@@ -28,13 +26,16 @@ export default function Onboarding() {
 
   const current = SETUP_STEPS[step]
 
+  const isSubmitting = status !== 'idle' && status !== 'error' && status !== 'not_found'
+
   const canNext =
     step === 0 ? true :
     step === 1 ? language !== '' :
-    step === 2 ? handle.trim().length > 0 : false
+    step === 2 ? handle.trim().length > 0 && !isSubmitting : false
 
   async function handleNext() {
     if (step < 2) { setStep(s => s + 1); return }
+    if (isSubmitting) return
     setStep(3)
     await runSetupPipeline()
   }
@@ -46,7 +47,7 @@ export default function Onboarding() {
   }
 
   async function runSetupPipeline() {
-    const cleanHandle = handle.replace('@', '').trim().toLowerCase()
+    const cleanHandle = normalizeHandle(handle)
 
     try {
       // ── Step 1: Save identity ──────────────────────────────
@@ -65,89 +66,59 @@ export default function Onboarding() {
         }, { onConflict: 'id' })
       }
 
-      // ── Step 2: Scrape ─────────────────────────────────────
+      // ── Step 2: Scrape (HikerAPI) ──────────────────────────
       setStatus('scraping')
       setStatusMsg('Fetching your Instagram data…')
 
-      const res = await fetch('/api/scrape', {
+      const scrapeRes = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanHandle, userId: user?.id }),
+        body: JSON.stringify({ username: cleanHandle }),
       })
+      const scrapeJson = await scrapeRes.json()
 
-      const json = await res.json()
-
-      // Account not found — show error screen
-      if (res.status === 404 && json.error === 'USER_NOT_FOUND') {
+      if (scrapeRes.status === 404 && scrapeJson.error === 'USER_NOT_FOUND') {
         setStatus('not_found')
         setStatusMsg('')
         return
       }
-
-      if (json.error) {
-        console.warn('[onboarding] Scrape error:', json.error)
+      if (scrapeJson.error) {
+        console.warn('[onboarding] Scrape error:', scrapeJson.error)
         setStatus('error')
         setStatusMsg('Something went wrong. Redirecting to dashboard…')
         setTimeout(() => { window.location.href = '/dashboard' }, 2000)
         return
       }
 
-      const { analysis, scrapedData = {}, engagementRate = 0 } = json
-
-      // Persist full_name to auth metadata
-      if (scrapedData.full_name && user) {
-        await supabase.auth.updateUser({ data: { hiker_full_name: scrapedData.full_name } })
+      // Persist Instagram full_name to auth metadata
+      if (scrapeJson.scrapedData?.full_name && user) {
+        await supabase.auth.updateUser({ data: { hiker_full_name: scrapeJson.scrapedData.full_name } })
       }
 
-      // ── Step 3: Client-side save ───────────────────────────
-      if (analysis && user) {
-        setStatus('storing')
-        setStatusMsg('Saving your brand analysis…')
+      // ── Step 3: Analyze (Gemini) ───────────────────────────
+      setStatus('storing')
+      setStatusMsg('Building your brand analysis…')
 
-        await supabase.from('users').upsert({
-          id: user.id,
-          instagram_username: cleanHandle,
-          language,
-          last_scraped_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
+      const analyzeRes = await fetch('/api/analyze-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const analyzeJson = await analyzeRes.json()
 
-        await supabase.from('profiles').upsert({
-          user_id: user.id,
-          brand_score: Math.round(analysis.brandScore || 0),
-          niche: analysis.niche || '',
-          engagement_rate: engagementRate,
-          follower_count: scrapedData.follower_count || 0,
-          following_count: scrapedData.following_count || 0,
-          brand_identity: analysis.brandIdentity || '',
-          brand_personality: analysis.brandPersonality || '',
-          content_pillars: analysis.contentPillars || [],
-          what_makes_unique: analysis.whatMakesThemUnique || '',
-          current_problems: analysis.currentProblems || [],
-          profile_score: Math.round(analysis.profileScore || 0),
-          best_posting_times: analysis.bestPostingTimes || [],
-          top_content_type: analysis.topPerformingContentType || '',
-          format_fatigue: analysis.formatFatigue || false,
-          format_fatigue_warning: analysis.formatFatigueWarning || '',
-          us_growth_strategy: analysis.usGrowthStrategy || '',
-          hispanic_to_us_shift: analysis.hispanicToUSShift || '',
-          filming_tips: analysis.filmingEnvironmentTips || '',
-          hashtag_strategy: analysis.hashtagStrategy || '',
-          content_variations: analysis.contentVariations || [],
-          weekly_plan: analysis.weeklyPlan || '',
-          bio_rewrite: analysis.bioRewrite || '',
-          audience_type: analysis.audienceType || '',
-          is_hispanic_audience: analysis.isHispanicAudience || false,
-          posting_frequency: analysis.postingFrequency || '',
-          raw_scraped_data: scrapedData,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' })
+      if (analyzeJson.error) {
+        console.warn('[onboarding] Analyze error:', analyzeJson.error)
+        setStatus('error')
+        setStatusMsg('Analysis failed. Redirecting to dashboard…')
+        setTimeout(() => { window.location.href = '/dashboard' }, 2000)
+        return
       }
 
       setStatus('done')
       setStatusMsg('All done! Taking you to your dashboard…')
       setTimeout(() => { window.location.href = '/dashboard' }, 1200)
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[onboarding] Pipeline error:', err)
       setStatus('error')
       setStatusMsg('Something went wrong — redirecting to dashboard.')
@@ -206,7 +177,7 @@ export default function Onboarding() {
                   Account Not Found
                 </h2>
                 <p style={{ color: '#555', fontSize: 14, lineHeight: 1.7, marginBottom: 32, maxWidth: 320 }}>
-                  We couldn't find <span style={{ color: '#FFD700' }}>@{handle.replace('@', '')}</span> on Instagram. This could be because:
+                  We couldn&apos;t find <span style={{ color: '#FFD700' }}>@{handle.replace('@', '')}</span> on Instagram. This could be because:
                 </p>
                 <div style={{ width: '100%', maxWidth: 320, marginBottom: 36 }}>
                   {[

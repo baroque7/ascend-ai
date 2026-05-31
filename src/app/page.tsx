@@ -281,6 +281,7 @@ export default function Landing() {
             { href: '/terms', label: 'Terms' },
             { href: '/privacy', label: 'Privacy' },
             { href: '/refund', label: 'Refund' },
+            { href: '/contact', label: 'Contact' },
           ].map(({ href, label }) => (
             <Link key={href} href={href} style={{ color: '#2a2a2a', fontSize: 13, textDecoration: 'none' }}>{label}</Link>
           ))}

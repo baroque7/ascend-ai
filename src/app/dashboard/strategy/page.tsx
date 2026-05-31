@@ -97,6 +97,7 @@ export default function StrategyPage() {
       const res = await fetch('/api/strategy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(55000),
         body: JSON.stringify({ userProfile: profile }),
       })
       const json = await res.json()
@@ -117,15 +118,12 @@ export default function StrategyPage() {
       }
       setData(json)
 
-      const { error: upsertError } = await supabase.from('strategy').upsert({
-        user_id: user.id,
-        data: json,
-      }, { onConflict: 'user_id' })
-
-      if (upsertError) console.error('UPSERT ERROR:', upsertError)
-
-    } catch (err: any) {
-      if (err.message?.includes('limit') || err.message?.includes('429')) {
+    } catch (err: unknown) {
+      const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+      const msg = err instanceof Error ? err.message : ''
+      if (isTimeout) {
+        setError('This is taking too long. Tap retry.')
+      } else if (msg.includes('limit') || msg.includes('429')) {
         setError('AI is busy right now. Wait a moment and tap retry.')
       } else {
         setError('Something went wrong. Please try again.')
@@ -273,7 +271,7 @@ export default function StrategyPage() {
                 {data.viralHookFormulas.map((hook, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: i < data.viralHookFormulas.length - 1 ? 12 : 0 }}>
                     <span style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 6, padding: '2px 7px', color: '#FFD700', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
-                    <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0, fontStyle: 'italic' }}>"{hook}"</p>
+                    <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0, fontStyle: 'italic' }}>&ldquo;{hook}&rdquo;</p>
                   </div>
                 ))}
               </motion.div>

@@ -1,10 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
+import { normalizeHandle } from '@/lib/utils'
 import { motion } from 'framer-motion'
 
-const LANGUAGES = ['English', 'Spanish', 'French', 'Portuguese', 'Arabic', 'Italian', 'German', 'Turkish', 'Hindi', 'Indonesian']
+const LANGUAGES = ['English', 'Spanish']
 
 export default function SettingsPage() {
   const { user, signOut, supabase } = useAuth()
@@ -30,7 +32,7 @@ export default function SettingsPage() {
   async function save() {
     setSaving(true)
     setError('')
-    const cleanHandle = handle.replace('@', '').trim().toLowerCase()
+    const cleanHandle = normalizeHandle(handle)
     const hadHandle = profile?.instagram_username
     const handleChanged = cleanHandle !== hadHandle
 
@@ -51,35 +53,42 @@ export default function SettingsPage() {
     setScraping(true)
 
     try {
-      // Update users table with new username BEFORE scrape
-      await supabase.from('users').update({
-        instagram_username: cleanHandle,
-        language,
-      }).eq('id', user?.id)
+      // Save language immediately — username only commits after successful scrape
+      await supabase.from('users').update({ language }).eq('id', user?.id)
 
-      const res = await fetch('/api/scrape', {
+      const scrapeRes = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanHandle, userId: user?.id }),
+        body: JSON.stringify({ username: cleanHandle }),
       })
+      const scrapeJson = await scrapeRes.json()
 
-      const json = await res.json()
-
-      if (res.status === 404 && json.error === 'USER_NOT_FOUND') {
+      if (scrapeRes.status === 404 && scrapeJson.error === 'USER_NOT_FOUND') {
         setError(`Could not find @${cleanHandle} on Instagram. Check the username and try again.`)
         setScraping(false)
         return
       }
-
-      if (json.error) {
-        setError('Profile analysis failed. Your username was saved — try refreshing later.')
+      if (scrapeJson.error) {
+        setError('Profile fetch failed. Your username was saved — try refreshing later.')
         setScraping(false)
         return
       }
 
-      // Update auth metadata with new name
-      if (json.scrapedData?.full_name) {
-        await supabase.auth.updateUser({ data: { hiker_full_name: json.scrapedData.full_name } })
+      if (scrapeJson.scrapedData?.full_name) {
+        await supabase.auth.updateUser({ data: { hiker_full_name: scrapeJson.scrapedData.full_name } })
+      }
+
+      const analyzeRes = await fetch('/api/analyze-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const analyzeJson = await analyzeRes.json()
+
+      if (analyzeJson.error) {
+        setError('Profile analysis failed. Instagram data was saved — try refreshing later.')
+        setScraping(false)
+        return
       }
 
       // Clear old caches so fresh data generates on next visit
@@ -205,6 +214,14 @@ export default function SettingsPage() {
             </span>
           </div>
         </div>
+      </motion.div>
+
+      {/* Contact support */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }} style={{ marginBottom: 12 }}>
+        <Link href="/contact"
+          style={{ display: 'block', width: '100%', padding: '15px', background: 'transparent', border: '1px solid #1a1a1a', borderRadius: 50, color: '#444', fontSize: 15, fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
+          Contact Support
+        </Link>
       </motion.div>
 
       {/* Sign out */}

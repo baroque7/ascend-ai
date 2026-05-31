@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 
 const USER_TABLE_FIELDS = ['instagram_username', 'language', 'is_subscribed', 'is_promo', 'last_scraped_at']
@@ -11,6 +11,7 @@ export interface UserProfile {
   is_subscribed: boolean
   is_promo: boolean
   last_scraped_at: string | null
+  scrape_status: 'pending' | 'scraped' | 'analyzed' | 'failed'
   brand_score: number
   niche: string
   engagement_rate: number
@@ -45,6 +46,7 @@ const DEFAULTS: Omit<UserProfile, 'id'> = {
   is_subscribed: false,
   is_promo: false,
   last_scraped_at: null,
+  scrape_status: 'pending',
   brand_score: 0,
   niche: '',
   engagement_rate: 0,
@@ -77,6 +79,31 @@ export function useProfile() {
   const { user, supabase } = useAuth()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const refreshing = useRef(false)
+  // reloadRef breaks the circular dep: silentRefresh needs reload, reload needs silentRefresh
+  const reloadRef = useRef<() => Promise<void>>(async () => {})
+
+  // Defined before reload so the React compiler can see it
+  const silentRefresh = useCallback(async (username: string) => {
+    if (refreshing.current) return
+    refreshing.current = true
+    try {
+      const scrapeRes = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      if (!scrapeRes.ok) return
+      await fetch('/api/analyze-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      await reloadRef.current()
+    } catch {} finally {
+      refreshing.current = false
+    }
+  }, [])
 
   const reload = useCallback(async () => {
     if (!user) { setLoading(false); return }
@@ -96,6 +123,7 @@ export function useProfile() {
         is_subscribed: u?.is_subscribed ?? false,
         is_promo: u?.is_promo ?? false,
         last_scraped_at: u?.last_scraped_at ?? null,
+        scrape_status: (p?.scrape_status as UserProfile['scrape_status']) ?? 'pending',
         brand_score: p?.brand_score ?? 0,
         niche: p?.niche ?? '',
         engagement_rate: p?.engagement_rate ?? 0,
@@ -125,10 +153,10 @@ export function useProfile() {
       }
       setProfile(merged)
 
-      // 24h silent background refresh
+      // 24h silent background refresh — guarded so only one runs at a time
       if (u?.last_scraped_at && u?.instagram_username) {
         const stale = Date.now() - new Date(u.last_scraped_at).getTime() > 86_400_000
-        if (stale) silentRefresh(user.id, u.instagram_username)
+        if (stale) silentRefresh(u.instagram_username)
       }
     } else {
       // Fallback to auth metadata if tables not yet populated
@@ -144,18 +172,10 @@ export function useProfile() {
       })
     }
     setLoading(false)
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, silentRefresh]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function silentRefresh(userId: string, username: string) {
-    try {
-      await fetch('/api/scrape', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, userId }),
-      })
-      await reload()
-    } catch {}
-  }
+  // Keep reloadRef pointing at the latest reload so silentRefresh can call it
+  useEffect(() => { reloadRef.current = reload }, [reload])
 
   async function updateProfile(patch: Partial<Omit<UserProfile, 'id'>>) {
     if (!user) return
@@ -176,7 +196,7 @@ export function useProfile() {
     }
   }
 
-  useEffect(() => { reload() }, [reload])
+  useEffect(() => { startTransition(() => { void reload() }) }, [reload])
 
   return { profile, loading, reload, updateProfile }
 }

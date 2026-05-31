@@ -32,12 +32,17 @@ export default function TodayPage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
   const [expanded, setExpanded] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const hasTriggered = useRef(false)
+  const MAX_RETRIES = 3
 
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const todayDate = new Date().toISOString().split('T')[0]
+  const todayDate = (() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })()
 
   useEffect(() => {
     if (!profileLoading && user && profile && !hasTriggered.current) {
@@ -69,7 +74,8 @@ export default function TodayPage() {
         }
       }
 
-      if (!profile) {
+      if (!profile || profile.scrape_status !== 'analyzed') {
+        setError('Your profile analysis is still in progress. Check back in a moment.')
         setLoading(false)
         return
       }
@@ -77,9 +83,11 @@ export default function TodayPage() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(55000),
         body: JSON.stringify({
           userProfile: profile,
           language: profile?.language || 'English',
+          date: todayDate,
         }),
       })
 
@@ -93,6 +101,7 @@ export default function TodayPage() {
       }
 
       if (!res.ok || data.error) {
+        setRetryCount(c => c + 1)
         setError('Could not load ideas. Tap to retry.')
         setLoading(false)
         return
@@ -101,16 +110,10 @@ export default function TodayPage() {
       if (!Array.isArray(data)) throw new Error('Bad response')
       setIdeas(data)
 
-      const { error: upsertError } = await supabase.from('content').upsert({
-        user_id: user.id,
-        date: todayDate,
-        ideas: data,
-      }, { onConflict: 'user_id,date' })
-
-      if (upsertError) console.error('UPSERT ERROR:', upsertError)
-
-    } catch {
-      setError('Could not load ideas. Tap to retry.')
+    } catch (err: unknown) {
+      setRetryCount(c => c + 1)
+      const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+      setError(isTimeout ? 'This is taking too long. Tap to retry.' : 'Could not load ideas. Tap to retry.')
     }
 
     setLoading(false)
@@ -133,7 +136,7 @@ export default function TodayPage() {
         <p style={{ color: '#333', fontSize: 12, margin: '0 0 4px' }}>{today}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>
-            Today's Content
+            Today&apos;s Content
           </h1>
           {!isLoading && ideas.length > 0 && (
             <motion.span key={ideas.length} initial={{ scale: 1.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
@@ -150,10 +153,16 @@ export default function TodayPage() {
       </div>
 
       {error && (
-        <button onClick={() => { hasTriggered.current = false; load() }}
-          style={{ width: '100%', background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center', cursor: 'pointer' }}>
-          <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>{error}</p>
-        </button>
+        retryCount < MAX_RETRIES ? (
+          <button onClick={() => { hasTriggered.current = false; load() }}
+            style={{ width: '100%', background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center', cursor: 'pointer' }}>
+            <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>{error}</p>
+          </button>
+        ) : (
+          <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
+            <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>Something went wrong. Please refresh the page and try again.</p>
+          </div>
+        )
       )}
 
       {isLoading && [0, 1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}

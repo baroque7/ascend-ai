@@ -1,42 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(req: NextRequest) {
-  const res = NextResponse.next()
+export async function proxy(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request })
 
-  // Skip middleware for public routes and static assets
-  if (
-    req.nextUrl.pathname === '/' ||
-    req.nextUrl.pathname.startsWith('/login') ||
-    req.nextUrl.pathname.startsWith('/signup') ||
-    req.nextUrl.pathname.startsWith('/forgot-password') ||
-    req.nextUrl.pathname.startsWith('/pricing') ||
-    req.nextUrl.pathname.startsWith('/_next') ||
-    req.nextUrl.pathname.startsWith('/api') ||
-    req.nextUrl.pathname.includes('.')
-  ) {
-    return res
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  // getUser() verifies the session server-side — safer than getSession()
+  // which only reads the cookie without checking it with Supabase
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { pathname } = request.nextUrl
+
+  const isProtected =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/payment')
+
+  if (isProtected && !user) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    return NextResponse.redirect(loginUrl)
   }
 
-  // For dashboard routes, ensure session cookies are preserved
-  if (req.nextUrl.pathname.startsWith('/dashboard')) {
-    const cookies = req.cookies.getAll()
-    cookies.forEach(cookie => {
-      if (cookie.name.includes('sb-')) {
-        res.cookies.set(cookie.name, cookie.value, {
-          ...cookie,
-          httpOnly: false,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax'
-        })
-      }
-    })
-  }
-
-  return res
+  return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|login|signup|forgot-password|pricing|$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

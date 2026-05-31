@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
 import Link from 'next/link'
@@ -83,13 +83,25 @@ export default function Home() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
-  const hasData = !!(profile?.brand_score && profile.brand_score > 0)
+  const hasData = profile?.scrape_status === 'analyzed'
   const hasHandle = !!profile?.instagram_username
+  const pollCount = useRef(0)
+  const MAX_POLLS = 12 // stop after 2 minutes (12 × 10s)
 
   // Poll Supabase every 10s while HikerAPI data exists but Gemini hasn't finished yet
   useEffect(() => {
-    if (loading || !hasHandle || hasData) return
-    const interval = setInterval(reload, 10000)
+    if (loading || !hasHandle || hasData) {
+      pollCount.current = 0
+      return
+    }
+    const interval = setInterval(() => {
+      pollCount.current += 1
+      if (pollCount.current >= MAX_POLLS) {
+        clearInterval(interval)
+        return
+      }
+      reload()
+    }, 10000)
     return () => clearInterval(interval)
   }, [loading, hasHandle, hasData, reload])
 
