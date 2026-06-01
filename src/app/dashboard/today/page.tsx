@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Idea {
@@ -29,6 +30,7 @@ function SkeletonCard() {
 export default function TodayPage() {
   const { user, supabase } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
+  const { t } = useTranslation()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -75,7 +77,7 @@ export default function TodayPage() {
       }
 
       if (!profile || profile.scrape_status !== 'analyzed') {
-        setError('Your profile analysis is still in progress. Check back in a moment.')
+        setError(t('today.analysis_in_progress'))
         setLoading(false)
         return
       }
@@ -95,14 +97,14 @@ export default function TodayPage() {
 
       // Handle rate limit explicitly
       if (res.status === 429) {
-        setError('AI is busy right now. Wait a moment and tap to retry.')
+        setError(t('today.ai_busy'))
         setLoading(false)
         return
       }
 
       if (!res.ok || data.error) {
         setRetryCount(c => c + 1)
-        setError('Could not load ideas. Tap to retry.')
+        setError(t('today.load_error'))
         setLoading(false)
         return
       }
@@ -113,7 +115,7 @@ export default function TodayPage() {
     } catch (err: unknown) {
       setRetryCount(c => c + 1)
       const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
-      setError(isTimeout ? 'This is taking too long. Tap to retry.' : 'Could not load ideas. Tap to retry.')
+      setError(isTimeout ? t('today.timeout') : t('today.load_error'))
     }
 
     setLoading(false)
@@ -136,7 +138,7 @@ export default function TodayPage() {
         <p style={{ color: '#333', fontSize: 12, margin: '0 0 4px' }}>{today}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: 0, letterSpacing: '-0.5px' }}>
-            Today&apos;s Content
+            {t('today.title')}
           </h1>
           {!isLoading && ideas.length > 0 && (
             <motion.span key={ideas.length} initial={{ scale: 1.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
@@ -147,7 +149,7 @@ export default function TodayPage() {
         </div>
         {profile?.niche && !isLoading && (
           <p style={{ color: '#333', fontSize: 12, margin: '6px 0 0' }}>
-            Niche: <span style={{ color: '#FFD700' }}>{profile.niche}</span>
+            {t('today.niche')} <span style={{ color: '#FFD700' }}>{profile.niche}</span>
           </p>
         )}
       </div>
@@ -160,7 +162,7 @@ export default function TodayPage() {
           </button>
         ) : (
           <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.15)', borderRadius: 12, padding: 14, marginBottom: 20, textAlign: 'center' }}>
-            <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>Something went wrong. Please refresh the page and try again.</p>
+            <p style={{ color: '#ff6b6b', fontSize: 14, margin: 0 }}>{t('today.generic_error')}</p>
           </div>
         )
       )}
@@ -200,10 +202,10 @@ export default function TodayPage() {
                       {/* Script */}
                       <div style={{ marginBottom: 18 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>📹 SCRIPT</span>
+                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>📹 {t('today.script')}</span>
                           <button onClick={() => copy(idea.script, `s${i}`)}
                             style={{ background: copied === `s${i}` ? 'rgba(255,215,0,0.1)' : 'none', border: `1px solid ${copied === `s${i}` ? 'rgba(255,215,0,0.3)' : '#222'}`, borderRadius: 6, color: copied === `s${i}` ? '#FFD700' : '#444', fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>
-                            {copied === `s${i}` ? '✓ Copied' : 'Copy'}
+                            {copied === `s${i}` ? t('today.copied') : t('today.copy')}
                           </button>
                         </div>
                         <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>{idea.script}</p>
@@ -212,10 +214,10 @@ export default function TodayPage() {
                       {/* Caption */}
                       <div style={{ marginBottom: 18 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>✏️ CAPTION</span>
+                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>✏️ {t('today.caption')}</span>
                           <button onClick={() => copy(idea.caption, `c${i}`)}
                             style={{ background: copied === `c${i}` ? 'rgba(255,215,0,0.1)' : 'none', border: `1px solid ${copied === `c${i}` ? 'rgba(255,215,0,0.3)' : '#222'}`, borderRadius: 6, color: copied === `c${i}` ? '#FFD700' : '#444', fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>
-                            {copied === `c${i}` ? '✓ Copied' : 'Copy'}
+                            {copied === `c${i}` ? t('today.copied') : t('today.copy')}
                           </button>
                         </div>
                         <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{idea.caption}</p>
@@ -224,10 +226,10 @@ export default function TodayPage() {
                       {/* Hashtags */}
                       <div style={{ marginBottom: 18 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>#️⃣ HASHTAGS</span>
+                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>#️⃣ {t('today.hashtags')}</span>
                           <button onClick={() => copy(idea.hashtags, `h${i}`)}
                             style={{ background: copied === `h${i}` ? 'rgba(255,215,0,0.1)' : 'none', border: `1px solid ${copied === `h${i}` ? 'rgba(255,215,0,0.3)' : '#222'}`, borderRadius: 6, color: copied === `h${i}` ? '#FFD700' : '#444', fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>
-                            {copied === `h${i}` ? '✓ Copied' : 'Copy'}
+                            {copied === `h${i}` ? t('today.copied') : t('today.copy')}
                           </button>
                         </div>
                         <p style={{ color: '#555', fontSize: 13, lineHeight: 1.8, margin: 0 }}>{idea.hashtags}</p>
@@ -237,7 +239,7 @@ export default function TodayPage() {
                       <div style={{ background: '#111', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 14 }}>⏰</span>
                         <div>
-                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>BEST TIME TO POST  </span>
+                          <span style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8 }}>{t('today.best_time')}  </span>
                           <span style={{ color: '#888', fontSize: 13 }}>{idea.postingTime}</span>
                         </div>
                       </div>
@@ -245,7 +247,7 @@ export default function TodayPage() {
                       {/* Why this works */}
                       {idea.whyThisWorks && (
                         <div style={{ background: 'rgba(255,215,0,0.04)', border: '1px solid rgba(255,215,0,0.1)', borderRadius: 10, padding: '12px 14px' }}>
-                          <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, margin: '0 0 6px' }}>💡 WHY THIS WORKS</p>
+                          <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, margin: '0 0 6px' }}>💡 {t('today.why_works')}</p>
                           <p style={{ color: '#888', fontSize: 13, margin: 0, lineHeight: 1.6 }}>{idea.whyThisWorks}</p>
                         </div>
                       )}

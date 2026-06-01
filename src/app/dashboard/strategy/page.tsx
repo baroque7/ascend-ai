@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useProfile } from '@/hooks/useProfile'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface ContentPillar {
@@ -55,6 +56,7 @@ function Section({ icon, label, content, accent = '#FFD700' }: { icon: string; l
 export default function StrategyPage() {
   const { user, supabase } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
+  const { t } = useTranslation()
   const [data, setData] = useState<StrategyData | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
@@ -122,11 +124,11 @@ export default function StrategyPage() {
       const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
       const msg = err instanceof Error ? err.message : ''
       if (isTimeout) {
-        setError('This is taking too long. Tap retry.')
+        setError(t('strategy.timeout'))
       } else if (msg.includes('limit') || msg.includes('429')) {
-        setError('AI is busy right now. Wait a moment and tap retry.')
+        setError(t('strategy.ai_busy'))
       } else {
-        setError('Something went wrong. Please try again.')
+        setError(t('strategy.error'))
       }
     }
 
@@ -140,10 +142,10 @@ export default function StrategyPage() {
       <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 48, marginBottom: 20 }}>🎯</div>
-          <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 10 }}>Profile not set up</h2>
-          <p style={{ color: '#444', fontSize: 14, marginBottom: 24 }}>Complete onboarding to get your brand strategy.</p>
+          <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 10 }}>{t('strategy.no_profile.title')}</h2>
+          <p style={{ color: '#444', fontSize: 14, marginBottom: 24 }}>{t('strategy.no_profile.desc')}</p>
           <a href="/onboarding" style={{ background: '#FFD700', color: '#000', padding: '14px 28px', borderRadius: 50, fontWeight: 900, fontSize: 15, textDecoration: 'none', display: 'inline-block' }}>
-            Set Up Profile →
+            {t('strategy.no_profile.cta')}
           </a>
         </div>
       </div>
@@ -156,16 +158,16 @@ export default function StrategyPage() {
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
         <div>
-          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.5px' }}>My US Strategy</h1>
+          <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.5px' }}>{t('strategy.title')}</h1>
           <p style={{ color: '#333', fontSize: 13, margin: 0 }}>
             {profile?.instagram_username ? `@${profile.instagram_username}` : ''}{profile?.niche ? ` · ${profile.niche}` : ''}
-            {cachedAt && <span style={{ color: '#2a2a2a' }}> · cached today</span>}
+            {cachedAt && <span style={{ color: '#2a2a2a' }}>{t('strategy.cached')}</span>}
           </p>
         </div>
         {data && !generating && (
           <motion.button onClick={() => loadStrategy(true)} whileTap={{ scale: 0.9 }}
             style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 12px', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-            ↻ Refresh
+            {t('strategy.refresh')}
           </motion.button>
         )}
       </motion.div>
@@ -177,7 +179,7 @@ export default function StrategyPage() {
           <div style={{ flex: 1 }}>
             <p style={{ color: '#888', fontSize: 14, margin: '0 0 6px' }}>{error}</p>
             <button onClick={() => { hasTriggered.current = false; loadStrategy() }} style={{ background: 'none', border: 'none', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
-              Retry now →
+              {t('strategy.retry')}
             </button>
           </div>
         </div>
@@ -189,7 +191,7 @@ export default function StrategyPage() {
             <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 18, padding: '20px', marginBottom: 16, textAlign: 'center' }}>
               <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
                 style={{ width: 32, height: 32, border: '3px solid #1a1a1a', borderTopColor: '#FFD700', borderRadius: '50%', margin: '0 auto 16px' }} />
-              <p style={{ color: '#555', fontSize: 14, margin: 0 }}>Building your brand strategy…</p>
+              <p style={{ color: '#555', fontSize: 14, margin: 0 }}>{t('strategy.loading')}</p>
             </div>
             <SkeletonBlock height={96} />
             <SkeletonBlock height={80} />
@@ -201,13 +203,13 @@ export default function StrategyPage() {
         {!isLoading && data && (
           <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
-            <Section icon="⚡" label="UNIQUE ANGLE" content={data.uniqueAngle} />
+            <Section icon="⚡" label={t('strategy.unique_angle')} content={data.uniqueAngle} />
 
             {/* Content Pillars */}
             {data.contentPillars?.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>📊 CONTENT PILLARS</p>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>📊 {t('strategy.content_pillars')}</p>
                 {data.contentPillars.map((p, i) => (
                   <div key={i} style={{ marginBottom: i < data.contentPillars.length - 1 ? 14 : 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -220,13 +222,13 @@ export default function StrategyPage() {
               </motion.div>
             )}
 
-            <Section icon="🚀" label="AUDIENCE SHIFT PLAN (30 DAYS)" content={data.audienceShiftPlan} />
+            <Section icon="🚀" label={t('strategy.audience_shift')} content={data.audienceShiftPlan} />
 
             {/* Top 5 Content Variations */}
             {data.top5ContentVariations?.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🔥 TOP 5 CONTENT VARIATIONS</p>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🔥 {t('strategy.top5')}</p>
                 {data.top5ContentVariations.map((v, i) => (
                   <div key={i} style={{ marginBottom: i < data.top5ContentVariations.length - 1 ? 16 : 0, paddingBottom: i < data.top5ContentVariations.length - 1 ? 16 : 0, borderBottom: i < data.top5ContentVariations.length - 1 ? '1px solid #111' : 'none' }}>
                     <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
@@ -234,9 +236,9 @@ export default function StrategyPage() {
                       <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: 0, lineHeight: 1.4 }}>{v.idea}</p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 22 }}>
-                      <p style={{ color: '#888', fontSize: 12, margin: 0 }}><span style={{ color: '#444', fontWeight: 700 }}>HOOK </span>{v.hook}</p>
-                      <p style={{ color: '#888', fontSize: 12, margin: 0 }}><span style={{ color: '#444', fontWeight: 700 }}>FORMAT </span>{v.format}</p>
-                      <p style={{ color: '#888', fontSize: 12, margin: 0 }}><span style={{ color: '#444', fontWeight: 700 }}>CTA </span>{v.cta}</p>
+                      <p style={{ color: '#888', fontSize: 12, margin: 0 }}><span style={{ color: '#444', fontWeight: 700 }}>{t('strategy.hook')} </span>{v.hook}</p>
+                      <p style={{ color: '#888', fontSize: 12, margin: 0 }}><span style={{ color: '#444', fontWeight: 700 }}>{t('strategy.format')} </span>{v.format}</p>
+                      <p style={{ color: '#888', fontSize: 12, margin: 0 }}><span style={{ color: '#444', fontWeight: 700 }}>{t('strategy.cta')} </span>{v.cta}</p>
                     </div>
                   </div>
                 ))}
@@ -247,17 +249,17 @@ export default function StrategyPage() {
             {data.profileOptimization && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>✨ PROFILE OPTIMIZATION</p>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>✨ {t('strategy.profile_opt')}</p>
                 <div style={{ marginBottom: 14 }}>
-                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>BIO REWRITE</p>
+                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>{t('strategy.bio_rewrite')}</p>
                   <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{data.profileOptimization.bioRewrite}</p>
                 </div>
                 <div style={{ marginBottom: 14 }}>
-                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>PROFILE PICTURE</p>
+                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>{t('strategy.profile_pic')}</p>
                   <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{data.profileOptimization.profilePictureTip}</p>
                 </div>
                 <div>
-                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>STORY HIGHLIGHTS</p>
+                  <p style={{ color: '#555', fontSize: 11, fontWeight: 700, margin: '0 0 6px', letterSpacing: 0.5 }}>{t('strategy.highlights')}</p>
                   <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{data.profileOptimization.highlightStrategy}</p>
                 </div>
               </motion.div>
@@ -267,7 +269,7 @@ export default function StrategyPage() {
             {data.viralHookFormulas?.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🎣 VIRAL HOOK FORMULAS</p>
+                <p style={{ color: '#FFD700', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🎣 {t('strategy.viral_hooks')}</p>
                 {data.viralHookFormulas.map((hook, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: i < data.viralHookFormulas.length - 1 ? 12 : 0 }}>
                     <span style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 6, padding: '2px 7px', color: '#FFD700', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
@@ -281,7 +283,7 @@ export default function StrategyPage() {
             {data.contentGaps?.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 style={{ background: 'rgba(255,100,0,0.04)', border: '1px solid rgba(255,100,0,0.15)', borderRadius: 16, padding: '18px', marginBottom: 12 }}>
-                <p style={{ color: '#ff8c42', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🕳️ CONTENT GAPS TO FILL</p>
+                <p style={{ color: '#ff8c42', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>🕳️ {t('strategy.content_gaps')}</p>
                 {data.contentGaps.map((gap, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: i < data.contentGaps.length - 1 ? 10 : 0 }}>
                     <span style={{ color: '#ff8c42', fontSize: 13, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>→</span>

@@ -3,9 +3,11 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ContactPage() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -28,13 +30,13 @@ export default function ContactPage() {
       })
       const data = await res.json()
       if (!res.ok || data.error) {
-        setError(data.error || 'Something went wrong. Please try again.')
+        setError(data.error || t('contact.error'))
         setLoading(false)
         return
       }
       setSuccess(true)
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(t('contact.error'))
       setLoading(false)
     }
   }
@@ -60,16 +62,16 @@ export default function ContactPage() {
               style={{ textAlign: 'center' }}
             >
               <div style={{ fontSize: 56, marginBottom: 20 }}>✅</div>
-              <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 900, marginBottom: 10 }}>Message sent!</h2>
-              <p style={{ color: '#444', fontSize: 15, marginBottom: 28 }}>We&apos;ll get back to you as soon as possible.</p>
+              <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 900, marginBottom: 10 }}>{t('contact.success.title')}</h2>
+              <p style={{ color: '#444', fontSize: 15, marginBottom: 28 }}>{t('contact.success.desc')}</p>
               <Link href={user ? '/dashboard/settings' : '/'} style={{ color: '#FFD700', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
-                {user ? '← Back to settings' : '← Back to home'}
+                {user ? t('contact.success.back_settings') : t('contact.success.back_home')}
               </Link>
             </motion.div>
           ) : (
             <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Get in touch</h1>
-              <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>Need help? We&apos;re here for you.</p>
+              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>{t('contact.title')}</h1>
+              <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>{t('contact.desc')}</p>
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {/* Honeypot — hidden from humans, bots fill it in */}
@@ -85,7 +87,7 @@ export default function ContactPage() {
                 />
                 <input
                   type="text"
-                  placeholder="Your name"
+                  placeholder={t('contact.name')}
                   value={name}
                   onChange={e => setName(e.target.value)}
                   required
@@ -93,14 +95,14 @@ export default function ContactPage() {
                 />
                 <input
                   type="email"
-                  placeholder="Your email"
+                  placeholder={t('contact.email')}
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
                   style={{ width: '100%', padding: '14px 16px', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 15, boxSizing: 'border-box', outline: 'none' }}
                 />
                 <textarea
-                  placeholder="How can we help you?"
+                  placeholder={t('contact.message')}
                   value={message}
                   onChange={e => setMessage(e.target.value)}
                   required
@@ -127,7 +129,7 @@ export default function ContactPage() {
                   whileTap={{ scale: 0.98 }}
                   style={{ width: '100%', padding: '16px', background: loading ? '#111' : '#FFD700', border: loading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: loading ? '#444' : '#000', fontSize: 16, fontWeight: 900, cursor: loading ? 'default' : 'pointer', marginTop: 4 }}
                 >
-                  {loading ? 'Sending…' : 'Send Message →'}
+                  {loading ? t('contact.sending') : t('contact.submit')}
                 </motion.button>
               </form>
             </motion.div>

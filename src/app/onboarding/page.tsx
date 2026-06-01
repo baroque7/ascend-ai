@@ -3,15 +3,9 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { normalizeHandle } from '@/lib/utils'
+import { useTranslation } from '@/hooks/useTranslation'
 
 const LANGUAGES = ['English', 'Spanish']
-
-const SETUP_STEPS = [
-  { id: 'welcome', emoji: '👋', title: 'Welcome to Ascend.AI', desc: "Let's build your personalized US growth strategy." },
-  { id: 'language', emoji: '🌍', title: 'What language do you speak?', desc: "Scripts in your language. Captions always in English." },
-  { id: 'handle', emoji: '📸', title: 'Your Instagram handle', desc: "Enter it once — we'll analyze your profile automatically." },
-  { id: 'processing', emoji: '⚡', title: 'Analyzing your profile', desc: "Building your personalized brand strategy…" },
-]
 
 type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'storing' | 'done' | 'error' | 'not_found'
 
@@ -20,6 +14,14 @@ export default function Onboarding() {
 
   const [step, setStep] = useState(0)
   const [language, setLanguage] = useState('English')
+  const { t } = useTranslation(language)
+
+  const SETUP_STEPS = [
+    { id: 'welcome', emoji: '👋', title: t('onboarding.step.welcome.title'), desc: t('onboarding.step.welcome.desc') },
+    { id: 'language', emoji: '🌍', title: t('onboarding.step.language.title'), desc: t('onboarding.step.language.desc') },
+    { id: 'handle', emoji: '📸', title: t('onboarding.step.handle.title'), desc: t('onboarding.step.handle.desc') },
+    { id: 'processing', emoji: '⚡', title: t('onboarding.step.processing.title'), desc: t('onboarding.step.processing.desc') },
+  ]
   const [handle, setHandle] = useState('')
   const [status, setStatus] = useState<ProcessStatus>('idle')
   const [statusMsg, setStatusMsg] = useState('')
@@ -52,7 +54,7 @@ export default function Onboarding() {
     try {
       // ── Step 1: Save identity ──────────────────────────────
       setStatus('saving')
-      setStatusMsg('Saving your profile…')
+      setStatusMsg(t('onboarding.status.saving'))
 
       await supabase.auth.updateUser({
         data: { language, instagram_handle: cleanHandle },
@@ -68,7 +70,7 @@ export default function Onboarding() {
 
       // ── Step 2: Scrape (HikerAPI) ──────────────────────────
       setStatus('scraping')
-      setStatusMsg('Fetching your Instagram data…')
+      setStatusMsg(t('onboarding.status.scraping'))
 
       const scrapeRes = await fetch('/api/scrape', {
         method: 'POST',
@@ -85,7 +87,7 @@ export default function Onboarding() {
       if (scrapeJson.error) {
         console.warn('[onboarding] Scrape error:', scrapeJson.error)
         setStatus('error')
-        setStatusMsg('Something went wrong. Redirecting to dashboard…')
+        setStatusMsg(t('onboarding.status.error'))
         setTimeout(() => { window.location.href = '/dashboard' }, 2000)
         return
       }
@@ -97,7 +99,7 @@ export default function Onboarding() {
 
       // ── Step 3: Analyze (Gemini) ───────────────────────────
       setStatus('storing')
-      setStatusMsg('Building your brand analysis…')
+      setStatusMsg(t('onboarding.status.storing'))
 
       const analyzeRes = await fetch('/api/analyze-profile', {
         method: 'POST',
@@ -109,28 +111,28 @@ export default function Onboarding() {
       if (analyzeJson.error) {
         console.warn('[onboarding] Analyze error:', analyzeJson.error)
         setStatus('error')
-        setStatusMsg('Analysis failed. Redirecting to dashboard…')
+        setStatusMsg(t('onboarding.status.analyze_error'))
         setTimeout(() => { window.location.href = '/dashboard' }, 2000)
         return
       }
 
       setStatus('done')
-      setStatusMsg('All done! Taking you to your dashboard…')
+      setStatusMsg(t('onboarding.status.done'))
       setTimeout(() => { window.location.href = '/dashboard' }, 1200)
 
     } catch (err: unknown) {
       console.error('[onboarding] Pipeline error:', err)
       setStatus('error')
-      setStatusMsg('Something went wrong — redirecting to dashboard.')
+      setStatusMsg(t('onboarding.status.generic_error'))
       setTimeout(() => { window.location.href = '/dashboard' }, 2000)
     }
   }
 
   const statusSteps: { key: ProcessStatus; label: string }[] = [
-    { key: 'saving', label: 'Profile saved' },
-    { key: 'scraping', label: 'Instagram analyzed' },
-    { key: 'storing', label: 'Brand data stored' },
-    { key: 'done', label: 'Ready' },
+    { key: 'saving', label: t('onboarding.progress.saving') },
+    { key: 'scraping', label: t('onboarding.progress.scraping') },
+    { key: 'storing', label: t('onboarding.progress.storing') },
+    { key: 'done', label: t('onboarding.progress.done') },
   ]
 
   return (
@@ -142,7 +144,7 @@ export default function Onboarding() {
         {step < 3 && (
           <button onClick={() => { window.location.href = '/dashboard' }}
             style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>
-            Skip
+            {t('onboarding.skip')}
           </button>
         )}
       </div>
@@ -174,17 +176,17 @@ export default function Onboarding() {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                 <div style={{ fontSize: 56, marginBottom: 24 }}>🔍</div>
                 <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 900, marginBottom: 12, letterSpacing: '-0.5px' }}>
-                  Account Not Found
+                  {t('onboarding.not_found.title')}
                 </h2>
                 <p style={{ color: '#555', fontSize: 14, lineHeight: 1.7, marginBottom: 32, maxWidth: 320 }}>
-                  We couldn&apos;t find <span style={{ color: '#FFD700' }}>@{handle.replace('@', '')}</span> on Instagram. This could be because:
+                  We couldn&apos;t find <span style={{ color: '#FFD700' }}>@{handle.replace('@', '')}</span> {t('onboarding.not_found.desc')}
                 </p>
                 <div style={{ width: '100%', maxWidth: 320, marginBottom: 36 }}>
                   {[
-                    '🔒 The account is private',
-                    '❌ The account doesn\'t exist',
-                    '✏️ The username is misspelled',
-                    '🗑️ The account was deleted',
+                    t('onboarding.not_found.private'),
+                    t('onboarding.not_found.missing'),
+                    t('onboarding.not_found.typo'),
+                    t('onboarding.not_found.deleted'),
                   ].map((reason, i) => (
                     <div key={i} style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 10, padding: '12px 16px', marginBottom: 8, textAlign: 'left' }}>
                       <p style={{ color: '#666', fontSize: 13, margin: 0 }}>{reason}</p>
@@ -195,7 +197,7 @@ export default function Onboarding() {
                   onClick={resetToHandle}
                   whileTap={{ scale: 0.97 }}
                   style={{ width: '100%', maxWidth: 320, padding: '16px', background: '#FFD700', border: 'none', borderRadius: 50, color: '#000', fontSize: 16, fontWeight: 900, cursor: 'pointer' }}>
-                  Try a Different Handle →
+                  {t('onboarding.not_found.cta')}
                 </motion.button>
               </div>
             ) : (
@@ -227,14 +229,14 @@ export default function Onboarding() {
                   <div style={{ marginBottom: 24 }}>
                     <input
                       type="text"
-                      placeholder="@yourhandle"
+                      placeholder={t('onboarding.handle_placeholder')}
                       value={handle}
                       onChange={e => setHandle(e.target.value)}
                       style={{ width: '100%', padding: '16px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 18, boxSizing: 'border-box', outline: 'none', textAlign: 'center', letterSpacing: '0.5px' }}
                       autoCapitalize="none"
                       autoCorrect="off"
                     />
-                    <p style={{ color: '#333', fontSize: 13, textAlign: 'center', marginTop: 10 }}>Your niche is detected automatically from your posts</p>
+                    <p style={{ color: '#333', fontSize: 13, textAlign: 'center', marginTop: 10 }}>{t('onboarding.handle_hint')}</p>
                   </div>
                 )}
 
@@ -313,7 +315,7 @@ export default function Onboarding() {
             whileTap={{ scale: 0.98 }}
             style={{ flex: 1, padding: '16px', background: canNext ? '#FFD700' : '#1a1a1a', border: 'none', borderRadius: 50, color: canNext ? '#000' : '#333', fontSize: 17, fontWeight: 900, cursor: canNext ? 'pointer' : 'default' }}
           >
-            {step === 2 ? 'Analyze My Profile →' : 'Continue →'}
+            {step === 2 ? t('onboarding.cta.analyze') : t('onboarding.cta.continue')}
           </motion.button>
         </div>
       )}

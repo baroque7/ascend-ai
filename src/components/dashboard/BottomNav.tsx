@@ -2,16 +2,18 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-
-const tabs = [
-  { href: '/dashboard', icon: '🏠', label: 'Home', exact: true },
-  { href: '/dashboard/today', icon: '📅', label: 'Today' },
-  { href: '/dashboard/strategy', icon: '🎯', label: 'Strategy' },
-  { href: '/dashboard/settings', icon: '⚙️', label: 'Settings' },
-]
+import { useTranslation } from '@/hooks/useTranslation'
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const { t } = useTranslation()
+
+  const tabs = [
+    { href: '/dashboard', icon: '🏠', label: t('nav.home'), exact: true },
+    { href: '/dashboard/today', icon: '📅', label: t('nav.today') },
+    { href: '/dashboard/strategy', icon: '🎯', label: t('nav.strategy') },
+    { href: '/dashboard/settings', icon: '⚙️', label: t('nav.settings') },
+  ]
 
   return (
     <div style={{

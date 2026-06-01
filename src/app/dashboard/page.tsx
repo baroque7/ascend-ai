@@ -2,16 +2,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
+import { useTranslation } from '@/hooks/useTranslation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-
-const TIPS = [
-  'Post your script within 2 hours of peak EST traffic for 3× the reach.',
-  'Reply to every comment in the first 30 minutes — the algorithm rewards it.',
-  'Use your first 3 seconds to state the payoff, not the intro.',
-  'Add closed captions — 85% of US users watch with sound off.',
-  'End every video with a question to boost comment velocity.',
-]
 
 function ScoreRing({ score }: { score: number }) {
   const r = 54
@@ -68,6 +61,15 @@ function formatEngagement(n: number | undefined | null): string {
 export default function Home() {
   const { user } = useAuth()
   const { profile, loading, reload } = useProfile()
+  const { t } = useTranslation()
+
+  const TIPS = [
+    t('dashboard.tip.1'),
+    t('dashboard.tip.2'),
+    t('dashboard.tip.3'),
+    t('dashboard.tip.4'),
+    t('dashboard.tip.5'),
+  ]
 
   // Greeting name: HikerAPI full_name (real Instagram name) → 'Creator'
   const hikerFullName = (user?.user_metadata?.hiker_full_name as string | undefined)
@@ -81,7 +83,7 @@ export default function Home() {
   const score = profile?.brand_score ?? 0
   const tip = TIPS[new Date().getDay() % TIPS.length]
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const greeting = hour < 12 ? t('dashboard.greeting.morning') : hour < 17 ? t('dashboard.greeting.afternoon') : t('dashboard.greeting.evening')
 
   const hasData = profile?.scrape_status === 'analyzed'
   const hasHandle = !!profile?.instagram_username
@@ -141,11 +143,11 @@ export default function Home() {
           style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 20 }}>⚡</span>
           <div>
-            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>Set up your profile</p>
-            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>Connect your Instagram to unlock your brand score and strategy.</p>
+            <p style={{ color: '#FFD700', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>{t('dashboard.setup.title')}</p>
+            <p style={{ color: '#444', fontSize: 12, margin: 0 }}>{t('dashboard.setup.desc')}</p>
           </div>
           <Link href="/onboarding" style={{ marginLeft: 'auto', background: '#FFD700', color: '#000', fontSize: 12, fontWeight: 800, padding: '6px 14px', borderRadius: 50, textDecoration: 'none', flexShrink: 0 }}>
-            Start →
+            {t('dashboard.setup.cta')}
           </Link>
         </motion.div>
       )}
@@ -156,7 +158,7 @@ export default function Home() {
           style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
             style={{ width: 18, height: 18, border: '2px solid #222', borderTopColor: '#FFD700', borderRadius: '50%', flexShrink: 0 }} />
-          <p style={{ color: '#555', fontSize: 13, margin: 0 }}>Finalizing your brand analysis…</p>
+          <p style={{ color: '#555', fontSize: 13, margin: 0 }}>{t('dashboard.finalizing')}</p>
         </motion.div>
       )}
 
@@ -164,9 +166,9 @@ export default function Home() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
         style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 20, padding: '24px 20px', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, margin: 0 }}>BRAND SCORE</p>
+          <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, margin: 0 }}>{t('dashboard.brand_score')}</p>
           {lastUpdated && !loading && (
-            <span style={{ color: '#2a2a2a', fontSize: 11 }}>Updated {lastUpdated}</span>
+            <span style={{ color: '#2a2a2a', fontSize: 11 }}>{t('dashboard.updated')} {lastUpdated}</span>
           )}
         </div>
 
@@ -181,19 +183,19 @@ export default function Home() {
             <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>
               {loading ? '…' : formatFollowers(profile?.follower_count)}
             </div>
-            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>Followers</div>
+            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>{t('dashboard.followers')}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px' }}>
               {loading ? '…' : formatEngagement(profile?.engagement_rate)}
             </div>
-            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>Engagement</div>
+            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>{t('dashboard.engagement')}</div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 18, letterSpacing: '-0.5px', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {loading ? '…' : (profile?.niche ? profile.niche.split(' ')[0] : '—')}
             </div>
-            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>Niche</div>
+            <div style={{ color: '#333', fontSize: 11, marginTop: 3 }}>{t('dashboard.niche')}</div>
           </div>
         </div>
       </motion.div>
@@ -213,7 +215,7 @@ export default function Home() {
           </div>
           {profile.following_count > 0 && (
             <div style={{ textAlign: 'right' }}>
-              <p style={{ color: '#444', fontSize: 11, margin: '0 0 1px' }}>Following</p>
+              <p style={{ color: '#444', fontSize: 11, margin: '0 0 1px' }}>{t('dashboard.following')}</p>
               <p style={{ color: '#FFD700', fontSize: 13, fontWeight: 700, margin: 0 }}>{formatFollowers(profile.following_count)}</p>
             </div>
           )}
@@ -222,19 +224,19 @@ export default function Home() {
 
       {/* Quick actions */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }}>
-        <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>QUICK ACTIONS</p>
+        <p style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 12 }}>{t('dashboard.quick_actions')}</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <Link href="/dashboard/today"
             style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
             <div style={{ fontSize: 26, marginBottom: 10 }}>📅</div>
-            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>Today's Content</p>
-            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>5 ideas ready</p>
+            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>{t('dashboard.today_content')}</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>{t('dashboard.today_desc')}</p>
           </Link>
           <Link href="/dashboard/strategy"
             style={{ display: 'block', background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 16, padding: '18px 16px', textDecoration: 'none' }}>
             <div style={{ fontSize: 26, marginBottom: 10 }}>🎯</div>
-            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>My Strategy</p>
-            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>Brand identity</p>
+            <p style={{ color: '#FFD700', fontSize: 14, fontWeight: 800, margin: '0 0 4px' }}>{t('dashboard.strategy')}</p>
+            <p style={{ color: '#555', fontSize: 12, margin: 0 }}>{t('dashboard.strategy_desc')}</p>
           </Link>
         </div>
       </motion.div>
