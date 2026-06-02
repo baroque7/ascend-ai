@@ -59,8 +59,9 @@ function formatEngagement(n: number | undefined | null): string {
 }
 
 export default function Home() {
-  const { user } = useAuth()
-  const { profile, loading, reload } = useProfile()
+  const { user, loading: authLoading } = useAuth()
+  const { profile, loading: profileLoading, reload } = useProfile()
+  const loading = authLoading || profileLoading
   const { t } = useTranslation()
 
   const TIPS = [
