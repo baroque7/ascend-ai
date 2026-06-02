@@ -54,7 +54,7 @@ function Section({ icon, label, content, accent = '#FFD700' }: { icon: string; l
 }
 
 export default function StrategyPage() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
   const { t } = useTranslation()
   const [data, setData] = useState<StrategyData | null>(null)
@@ -135,9 +135,9 @@ export default function StrategyPage() {
     setGenerating(false)
   }
 
-  const isLoading = profileLoading || (generating && !data)
+  const isLoading = authLoading || profileLoading || (generating && !data)
 
-  if (!profileLoading && !profile?.instagram_username) {
+  if (!authLoading && !profileLoading && !profile?.instagram_username) {
     return (
       <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>

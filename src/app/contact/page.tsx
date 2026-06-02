@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
 
 export default function ContactPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -64,8 +64,8 @@ export default function ContactPage() {
               <div style={{ fontSize: 56, marginBottom: 20 }}>✅</div>
               <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 900, marginBottom: 10 }}>{t('contact.success.title')}</h2>
               <p style={{ color: '#444', fontSize: 15, marginBottom: 28 }}>{t('contact.success.desc')}</p>
-              <Link href={user ? '/dashboard/settings' : '/'} style={{ color: '#FFD700', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
-                {user ? t('contact.success.back_settings') : t('contact.success.back_home')}
+              <Link href={!authLoading && user ? '/dashboard/settings' : '/'} style={{ color: '#FFD700', fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+                {!authLoading && user ? t('contact.success.back_settings') : t('contact.success.back_home')}
               </Link>
             </motion.div>
           ) : (

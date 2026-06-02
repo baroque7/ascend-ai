@@ -1,7 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useProfile } from '@/hooks/useProfile'
 import { normalizeHandle } from '@/lib/utils'
 import { useTranslation } from '@/hooks/useTranslation'
 
@@ -11,10 +13,18 @@ type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'storing' | 'done' | 'erro
 
 export default function Onboarding() {
   const { user, supabase } = useAuth()
+  const { profile, loading: profileLoading } = useProfile()
 
   const [step, setStep] = useState(0)
   const [language, setLanguage] = useState('English')
   const { t } = useTranslation(language)
+
+  // Redirect already-onboarded users to dashboard
+  useEffect(() => {
+    if (!profileLoading && profile?.scrape_status === 'analyzed') {
+      window.location.replace('/dashboard')
+    }
+  }, [profileLoading, profile?.scrape_status])
 
   const SETUP_STEPS = [
     { id: 'welcome', emoji: '👋', title: t('onboarding.step.welcome.title'), desc: t('onboarding.step.welcome.desc') },

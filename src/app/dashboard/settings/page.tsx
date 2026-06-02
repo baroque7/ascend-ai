@@ -10,7 +10,7 @@ import { motion } from 'framer-motion'
 const LANGUAGES = ['English', 'Spanish']
 
 export default function SettingsPage() {
-  const { user, signOut, supabase } = useAuth()
+  const { user, signOut, supabase, loading: authLoading } = useAuth()
   const { profile, updateProfile } = useProfile()
   const { t } = useTranslation()
   const [handle, setHandle] = useState('')
@@ -22,11 +22,11 @@ export default function SettingsPage() {
   const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
-    if (profile) {
+    if (!authLoading && profile) {
       setHandle(profile.instagram_username || '')
       setLanguage(profile.language || 'English')
     }
-  }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authLoading, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPromo = user?.user_metadata?.is_promo === true
   const subStatus = user?.user_metadata?.subscription_status

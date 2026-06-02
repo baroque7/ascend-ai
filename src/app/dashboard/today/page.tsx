@@ -28,7 +28,7 @@ function SkeletonCard() {
 }
 
 export default function TodayPage() {
-  const { user, supabase } = useAuth()
+  const { user, supabase, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
   const { t } = useTranslation()
   const [ideas, setIdeas] = useState<Idea[]>([])
@@ -47,11 +47,11 @@ export default function TodayPage() {
   })()
 
   useEffect(() => {
-    if (!profileLoading && user && profile && !hasTriggered.current) {
+    if (!authLoading && !profileLoading && user && profile && !hasTriggered.current) {
       hasTriggered.current = true
       load()
     }
-  }, [profileLoading, user?.id, profile?.instagram_username]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authLoading, profileLoading, user?.id, profile?.instagram_username]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function load(forceRefresh = false) {
     if (!user) return
@@ -128,7 +128,7 @@ export default function TodayPage() {
     })
   }
 
-  const isLoading = profileLoading || loading
+  const isLoading = authLoading || profileLoading || loading
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
