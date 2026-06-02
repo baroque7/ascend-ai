@@ -1,13 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
-import { normalizeHandle } from '@/lib/utils'
+import { normalizeHandle, getStoredLanguage } from '@/lib/utils'
 import { useTranslation } from '@/hooks/useTranslation'
-
-const LANGUAGES = ['English', 'Spanish']
+import type { Language } from '@/lib/translations'
 
 type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'storing' | 'done' | 'error' | 'not_found'
 
@@ -16,8 +14,11 @@ export default function Onboarding() {
   const { profile, loading: profileLoading } = useProfile()
 
   const [step, setStep] = useState(0)
-  const [language, setLanguage] = useState('English')
+  const [language, setLanguage] = useState<Language>('English')
   const { t } = useTranslation(language)
+
+  // Language is chosen on the landing page toggle — read it here
+  useEffect(() => { setLanguage(getStoredLanguage()) }, [])
 
   // Redirect already-onboarded users to dashboard
   useEffect(() => {
@@ -26,9 +27,9 @@ export default function Onboarding() {
     }
   }, [profileLoading, profile?.scrape_status])
 
+  // 3-step flow: 0 = welcome, 1 = handle, 2 = processing
   const SETUP_STEPS = [
     { id: 'welcome', emoji: '👋', title: t('onboarding.step.welcome.title'), desc: t('onboarding.step.welcome.desc') },
-    { id: 'language', emoji: '🌍', title: t('onboarding.step.language.title'), desc: t('onboarding.step.language.desc') },
     { id: 'handle', emoji: '📸', title: t('onboarding.step.handle.title'), desc: t('onboarding.step.handle.desc') },
     { id: 'processing', emoji: '⚡', title: t('onboarding.step.processing.title'), desc: t('onboarding.step.processing.desc') },
   ]
@@ -42,18 +43,17 @@ export default function Onboarding() {
 
   const canNext =
     step === 0 ? true :
-    step === 1 ? language !== '' :
-    step === 2 ? handle.trim().length > 0 && !isSubmitting : false
+    step === 1 ? handle.trim().length > 0 && !isSubmitting : false
 
   async function handleNext() {
-    if (step < 2) { setStep(s => s + 1); return }
+    if (step < 1) { setStep(s => s + 1); return }
     if (isSubmitting) return
-    setStep(3)
+    setStep(2)
     await runSetupPipeline()
   }
 
   function resetToHandle() {
-    setStep(2)
+    setStep(1)
     setStatus('idle')
     setStatusMsg('')
   }
@@ -150,8 +150,8 @@ export default function Onboarding() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
-        <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18 }}>Ascend.AI</span>
-        {step < 3 && (
+        <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18 }}>GramScaling</span>
+        {step < 2 && (
           <button onClick={() => { window.location.href = '/dashboard' }}
             style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>
             {t('onboarding.skip')}
@@ -160,11 +160,11 @@ export default function Onboarding() {
       </div>
 
       {/* Progress bar */}
-      {step < 3 && (
+      {step < 2 && (
         <div style={{ height: 3, background: '#111', borderRadius: 2, marginBottom: 36, overflow: 'hidden' }}>
           <motion.div
             style={{ height: '100%', background: '#FFD700', borderRadius: 2 }}
-            animate={{ width: `${((step + 1) / 3) * 100}%` }}
+            animate={{ width: `${((step + 1) / 2) * 100}%` }}
             transition={{ duration: 0.4 }}
           />
         </div>
@@ -173,16 +173,16 @@ export default function Onboarding() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <AnimatePresence mode="wait">
           <motion.div
-            key={step === 3 ? status : step}
-            initial={{ opacity: 0, x: step === 3 ? 0 : 30 }}
+            key={step === 2 ? status : step}
+            initial={{ opacity: 0, x: step === 2 ? 0 : 30 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: step === 3 ? 0 : -30 }}
+            exit={{ opacity: 0, x: step === 2 ? 0 : -30 }}
             transition={{ duration: 0.28 }}
             style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           >
 
             {/* NOT FOUND ERROR SCREEN */}
-            {step === 3 && status === 'not_found' ? (
+            {step === 2 && status === 'not_found' ? (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                 <div style={{ fontSize: 56, marginBottom: 24 }}>🔍</div>
                 <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 900, marginBottom: 12, letterSpacing: '-0.5px' }}>
@@ -212,30 +212,14 @@ export default function Onboarding() {
               </div>
             ) : (
               <>
-                <div style={{ textAlign: 'center', marginBottom: step === 3 ? 48 : 32 }}>
+                <div style={{ textAlign: 'center', marginBottom: step === 2 ? 48 : 32 }}>
                   <div style={{ fontSize: 52, marginBottom: 16 }}>{current.emoji}</div>
                   <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, marginBottom: 10, letterSpacing: '-0.5px', lineHeight: 1.2 }}>{current.title}</h1>
                   <p style={{ color: '#555', fontSize: 14, lineHeight: 1.6 }}>{current.desc}</p>
                 </div>
 
-                {/* LANGUAGE — step 1 */}
+                {/* HANDLE — step 1 */}
                 {step === 1 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {LANGUAGES.map(l => {
-                      const active = language === l
-                      return (
-                        <motion.button key={l} onClick={() => setLanguage(l)} whileTap={{ scale: 0.98 }}
-                          style={{ padding: '14px 18px', background: active ? 'rgba(255,215,0,0.08)' : '#0a0a0a', border: `1px solid ${active ? 'rgba(255,215,0,0.4)' : '#1a1a1a'}`, borderRadius: 12, color: active ? '#FFD700' : '#666', fontSize: 14, fontWeight: active ? 700 : 400, cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          {l}
-                          {active && <span style={{ fontSize: 16 }}>✓</span>}
-                        </motion.button>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* HANDLE — step 2 */}
-                {step === 2 && (
                   <div style={{ marginBottom: 24 }}>
                     <input
                       type="text"
@@ -250,8 +234,8 @@ export default function Onboarding() {
                   </div>
                 )}
 
-                {/* PROCESSING — step 3 */}
-                {step === 3 && (
+                {/* PROCESSING — step 2 */}
+                {step === 2 && (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
                     {status !== 'done' && status !== 'error' && (
                       <motion.div
@@ -309,7 +293,7 @@ export default function Onboarding() {
       </div>
 
       {/* Navigation */}
-      {step < 3 && (
+      {step < 2 && (
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           {step > 0 && (
             <button
@@ -325,7 +309,7 @@ export default function Onboarding() {
             whileTap={{ scale: 0.98 }}
             style={{ flex: 1, padding: '16px', background: canNext ? '#FFD700' : '#1a1a1a', border: 'none', borderRadius: 50, color: canNext ? '#000' : '#333', fontSize: 17, fontWeight: 900, cursor: canNext ? 'pointer' : 'default' }}
           >
-            {step === 2 ? t('onboarding.cta.analyze') : t('onboarding.cta.continue')}
+            {step === 1 ? t('onboarding.cta.analyze') : t('onboarding.cta.continue')}
           </motion.button>
         </div>
       )}

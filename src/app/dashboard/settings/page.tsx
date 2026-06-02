@@ -41,12 +41,13 @@ export default function SettingsPage() {
     // Always save language to auth metadata
     await supabase.auth.updateUser({ data: { instagram_handle: cleanHandle, language } })
 
-    // If only language changed, save and done
+    // If only language changed, save and reload so the whole app
+    // (pages, nav, and AI content) all switch language together
     if (!handleChanged) {
       await updateProfile({ language })
       setSaving(false)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      setTimeout(() => { window.location.reload() }, 600)
       return
     }
 

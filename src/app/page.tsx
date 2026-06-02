@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
+import { getT, type Language } from '@/lib/translations'
+import { getStoredLanguage, setStoredLanguage } from '@/lib/utils'
 
 function AnimatedWord({ word, delay = 0 }: { word: string; delay?: number }) {
   return (
@@ -36,29 +38,22 @@ function CountUp({ end, duration = 2 }: { end: number; duration?: number }) {
   return <span ref={ref}>{count.toLocaleString()}</span>
 }
 
-const VALUES = [
-  {
-    icon: '🧠',
-    title: 'Your Brand DNA',
-    desc: 'We analyze what genuinely makes you different and build a brand identity no algorithm can ignore.',
-  },
-  {
-    icon: '🎯',
-    title: 'US Audience Targeting',
-    desc: 'Exact hashtags, posting windows, and content formats that American followers actually engage with.',
-  },
-  {
-    icon: '📅',
-    title: 'Daily Content System',
-    desc: 'Every day you wake up to a ready-to-post script written specifically for your niche and voice.',
-  },
-]
-
 export default function Landing() {
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [installed, setInstalled] = useState(false)
+  const [language, setLanguage] = useState<Language>('English')
   const valueRef = useRef(null)
   const valueInView = useInView(valueRef, { once: true, margin: '-80px' })
+
+  const t = getT(language)
+
+  // Read the visitor's previously chosen language on mount
+  useEffect(() => { setLanguage(getStoredLanguage()) }, [])
+
+  function chooseLanguage(lang: Language) {
+    setLanguage(lang)
+    setStoredLanguage(lang)
+  }
 
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e) }
@@ -73,6 +68,28 @@ export default function Landing() {
     if (outcome === 'accepted') { setInstalled(true); setInstallPrompt(null) }
   }
 
+  const headlineWords = t('landing.headline').split(' ')
+
+  const VALUES = [
+    { icon: '🧠', title: t('landing.value1.title'), desc: t('landing.value1.desc') },
+    { icon: '🎯', title: t('landing.value2.title'), desc: t('landing.value2.desc') },
+    { icon: '📅', title: t('landing.value3.title'), desc: t('landing.value3.desc') },
+  ]
+
+  const FEATURES = [
+    t('landing.feature.1'), t('landing.feature.2'), t('landing.feature.3'),
+    t('landing.feature.4'), t('landing.feature.5'), t('landing.feature.6'),
+  ]
+
+  const FOOTER_LINKS = [
+    { href: '/about', label: t('landing.footer.about') },
+    { href: '/pricing', label: t('landing.footer.pricing') },
+    { href: '/terms', label: t('landing.footer.terms') },
+    { href: '/privacy', label: t('landing.footer.privacy') },
+    { href: '/refund', label: t('landing.footer.refund') },
+    { href: '/contact', label: t('landing.footer.contact') },
+  ]
+
   return (
     <div style={{ background: '#000000', minHeight: '100vh', overflowX: 'hidden' }}>
 
@@ -84,7 +101,33 @@ export default function Landing() {
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', maxWidth: 640, margin: '0 auto' }}
       >
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 20, letterSpacing: '-0.5px' }}>GramScaling</span>
-        <Link href="/login" style={{ color: '#444', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>Sign in</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Language toggle */}
+          <div style={{ display: 'flex', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 50, padding: 3 }}>
+            {(['English', 'Spanish'] as Language[]).map(lang => {
+              const active = language === lang
+              return (
+                <button
+                  key={lang}
+                  onClick={() => chooseLanguage(lang)}
+                  style={{
+                    background: active ? '#FFD700' : 'transparent',
+                    color: active ? '#000' : '#666',
+                    border: 'none',
+                    borderRadius: 50,
+                    padding: '5px 12px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {lang === 'English' ? 'EN' : 'ES'}
+                </button>
+              )
+            })}
+          </div>
+          <Link href="/login" style={{ color: '#444', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>{t('landing.signin')}</Link>
+        </div>
       </motion.nav>
 
       {/* Hero */}
@@ -93,25 +136,18 @@ export default function Landing() {
         {/* Headline */}
         <div style={{ marginBottom: 24, perspective: 800 }}>
           <h1 style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-1.5px', margin: 0, color: '#fff' }}>
-            <AnimatedWord word="Stop" delay={0.15} />{' '}
-            <AnimatedWord word="Blending" delay={0.22} />{' '}
-            <AnimatedWord word="In." delay={0.29} />
-          </h1>
-          <h1 style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-1.5px', margin: '4px 0', color: '#fff' }}>
-            <AnimatedWord word="Start" delay={0.36} />{' '}
-            <AnimatedWord word="Building" delay={0.43} />{' '}
-            <AnimatedWord word="a" delay={0.48} />{' '}
-            <AnimatedWord word="Brand" delay={0.53} />
-          </h1>
-          <h1 style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.05, letterSpacing: '-1.5px', margin: '4px 0 0' }}>
-            <AnimatedWord word="Americans" delay={0.6} />{' '}
+            {headlineWords.map((word, i) => (
+              <span key={`${word}-${i}`}>
+                <AnimatedWord word={word} delay={0.15 + i * 0.06} />{' '}
+              </span>
+            ))}
             <motion.span
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.68, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.6, delay: 0.15 + headlineWords.length * 0.06, ease: [0.22, 1, 0.36, 1] }}
               style={{ display: 'inline-block', color: '#FFD700' }}
             >
-              Can't Ignore.
+              {t('landing.headline_accent')}
             </motion.span>
           </h1>
         </div>
@@ -123,7 +159,7 @@ export default function Landing() {
           transition={{ duration: 0.6, delay: 0.85 }}
           style={{ color: '#666', fontSize: 18, lineHeight: 1.65, maxWidth: 420, marginBottom: 40 }}
         >
-          GramScaling finds your unique brand identity and turns it into a strategy that attracts real American followers every single day.
+          {t('landing.subheadline')}
         </motion.p>
 
         {/* CTA */}
@@ -149,7 +185,7 @@ export default function Landing() {
               boxShadow: '0 0 40px rgba(255,215,0,0.2)',
             }}
           >
-            Build My American Brand →
+            {t('landing.cta')}
           </Link>
 
           <AnimatePresence>
@@ -161,12 +197,12 @@ export default function Landing() {
                 onClick={handleInstall}
                 style={{ background: 'transparent', border: '1px solid rgba(255,215,0,0.25)', color: '#FFD700', padding: '14px 24px', borderRadius: 50, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
-                ⬇ Install App — Works Offline
+                {t('landing.install')}
               </motion.button>
             )}
             {installed && (
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ color: '#FFD700', textAlign: 'center', fontSize: 14 }}>
-                ✓ Installed! Open from your home screen.
+                {t('landing.installed')}
               </motion.p>
             )}
           </AnimatePresence>
@@ -178,7 +214,7 @@ export default function Landing() {
           transition={{ delay: 1.1 }}
           style={{ color: '#2a2a2a', fontSize: 13, textAlign: 'center', marginBottom: 64 }}
         >
-          $69.99/month · 5-day free trial
+          {t('landing.price_line')}
         </motion.p>
 
         {/* Floating orb */}
@@ -198,7 +234,7 @@ export default function Landing() {
             transition={{ duration: 0.5 }}
             style={{ color: '#fff', fontSize: 26, fontWeight: 900, letterSpacing: '-0.5px', marginBottom: 24 }}
           >
-            What GramScaling does for you
+            {t('landing.values_title')}
           </motion.h2>
 
           {VALUES.map((v, i) => (
@@ -230,8 +266,8 @@ export default function Landing() {
         >
           <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
             {[
-              { value: 69, prefix: '$', suffix: '.99', label: 'Per Month' },
-              { value: 5, suffix: '-day', label: 'Free Trial' },
+              { value: 69, prefix: '$', suffix: '.99', label: t('landing.stat.per_month') },
+              { value: 5, suffix: '-day', label: t('landing.stat.free_trial') },
             ].map(({ value, prefix = '', suffix, label }) => (
               <div key={label}>
                 <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 26, letterSpacing: '-0.5px' }}>
@@ -252,13 +288,13 @@ export default function Landing() {
           style={{ textAlign: 'center', marginBottom: 56 }}
         >
           <div style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 20, padding: '32px 24px', marginBottom: 16 }}>
-            <p style={{ color: '#444', fontSize: 13, marginBottom: 8, fontWeight: 600, letterSpacing: 1 }}>GRAMSCALING PRO</p>
+            <p style={{ color: '#444', fontSize: 13, marginBottom: 8, fontWeight: 600, letterSpacing: 1 }}>{t('landing.pro_label')}</p>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 2, marginBottom: 20 }}>
               <span style={{ color: '#FFD700', fontSize: 22, fontWeight: 700, marginTop: 8 }}>$</span>
               <span style={{ color: '#FFD700', fontSize: 72, fontWeight: 900, lineHeight: 1, letterSpacing: '-3px' }}>69</span>
               <span style={{ color: '#555', fontSize: 16, marginTop: 16 }}>.99/mo</span>
             </div>
-            {['Your unique brand identity analyzed', 'Daily scripts in your language', 'US-targeted hashtag strategy', 'Best posting times for your niche', 'Follower growth tracking', 'Priority support'].map(f => (
+            {FEATURES.map(f => (
               <p key={f} style={{ color: '#666', fontSize: 14, margin: '0 0 10px', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 10 }}>
                 <span style={{ color: '#FFD700', fontSize: 13 }}>✓</span> {f}
               </p>
@@ -267,22 +303,15 @@ export default function Landing() {
               href="/signup"
               style={{ display: 'block', background: '#FFD700', color: '#000', padding: '17px', borderRadius: 50, textDecoration: 'none', fontSize: 16, fontWeight: 900, marginTop: 24 }}
             >
-              Build My American Brand
+              {t('landing.pro_cta')}
             </Link>
-            <p style={{ color: '#2a2a2a', fontSize: 12, marginTop: 12 }}>5-day free trial. No charge until day 6.</p>
+            <p style={{ color: '#2a2a2a', fontSize: 12, marginTop: 12 }}>{t('landing.trial_note')}</p>
           </div>
         </motion.div>
 
         {/* Footer */}
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', justifyContent: 'center', paddingBottom: 48, borderTop: '1px solid #0a0a0a', paddingTop: 32 }}>
-          {[
-            { href: '/about', label: 'About' },
-            { href: '/pricing', label: 'Pricing' },
-            { href: '/terms', label: 'Terms' },
-            { href: '/privacy', label: 'Privacy' },
-            { href: '/refund', label: 'Refund' },
-            { href: '/contact', label: 'Contact' },
-          ].map(({ href, label }) => (
+          {FOOTER_LINKS.map(({ href, label }) => (
             <Link key={href} href={href} style={{ color: '#2a2a2a', fontSize: 13, textDecoration: 'none' }}>{label}</Link>
           ))}
         </div>
