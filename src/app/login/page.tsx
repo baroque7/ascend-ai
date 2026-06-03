@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { AnimatePresence } from 'framer-motion'
@@ -10,7 +11,8 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn, isSubscribed } = useAuth()
+  const { signIn } = useAuth()
+  const { t } = useTranslation()
 
   const inputStyle = {
     width: '100%', padding: '15px 16px',
@@ -21,7 +23,7 @@ export default function Login() {
 
   async function handleLogin(e: React.SyntheticEvent) {
     e.preventDefault()
-    if (!email || !password) { setError('Please fill in all fields'); return }
+    if (!email || !password) { setError(t('login.error.fields')); return }
     setLoading(true); setError('')
     const result = await signIn(email, password)
     if (result.error) { setError(result.error); setLoading(false); return }
@@ -45,8 +47,8 @@ export default function Login() {
           GramScaling
         </Link>
 
-        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Welcome Back</h1>
-        <p style={{ color: '#444', textAlign: 'center', marginBottom: 32, fontSize: 14 }}>Sign in to your account</p>
+        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>{t('login.title')}</h1>
+        <p style={{ color: '#444', textAlign: 'center', marginBottom: 32, fontSize: 14 }}>{t('login.subtitle')}</p>
 
         <AnimatePresence>
           {error && (
@@ -57,11 +59,11 @@ export default function Login() {
         </AnimatePresence>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
-          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" />
+          <input type="email" placeholder={t('login.email')} value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
+          <input type="password" placeholder={t('login.password')} value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="current-password" />
 
           <div style={{ textAlign: 'right', marginTop: -4, marginBottom: 4 }}>
-            <Link href="/forgot-password" style={{ color: '#444', fontSize: 13, textDecoration: 'none' }}>Forgot password?</Link>
+            <Link href="/forgot-password" style={{ color: '#444', fontSize: 13, textDecoration: 'none' }}>{t('login.forgot')}</Link>
           </div>
 
           <motion.button
@@ -70,13 +72,13 @@ export default function Login() {
             whileTap={{ scale: 0.98 }}
             style={{ width: '100%', padding: '16px', background: loading ? '#111' : '#FFD700', border: loading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: loading ? '#444' : '#000', fontSize: 17, fontWeight: 900, cursor: loading ? 'default' : 'pointer' }}
           >
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? t('login.signing_in') : t('login.signin')}
           </motion.button>
         </form>
 
         <p style={{ color: '#333', textAlign: 'center', marginTop: 28, fontSize: 14 }}>
-          Don't have an account?{' '}
-          <Link href="/signup" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>Sign Up</Link>
+          {t('login.no_account')}{' '}
+          <Link href="/signup" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>{t('login.signup')}</Link>
         </p>
       </motion.div>
     </div>

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -12,6 +13,7 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const { signUp, supabase } = useAuth()
+  const { t } = useTranslation()
 
   const inputStyle = {
     width: '100%', padding: '15px 16px',
@@ -33,8 +35,8 @@ export default function SignUp() {
 
   async function handleSignUp(e: React.SyntheticEvent) {
     e.preventDefault()
-    if (!name.trim() || !email.trim() || !password) { setError('Please fill in all fields'); return }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return }
+    if (!name.trim() || !email.trim() || !password) { setError(t('signup.error.fields')); return }
+    if (password.length < 6) { setError(t('signup.error.password')); return }
     setLoading(true); setError('')
     const result = await signUp(email.trim(), password, name.trim())
     if (result.error) { setError(result.error); setLoading(false); return }
@@ -58,8 +60,8 @@ export default function SignUp() {
               GramScaling
             </Link>
 
-            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Create Your Account</h1>
-            <p style={{ color: '#444', textAlign: 'center', marginBottom: 32, fontSize: 14 }}>Start your 5-day free trial</p>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>{t('signup.title')}</h1>
+            <p style={{ color: '#444', textAlign: 'center', marginBottom: 32, fontSize: 14 }}>{t('signup.subtitle')}</p>
 
             <AnimatePresence>
               {error && (
@@ -70,9 +72,9 @@ export default function SignUp() {
             </AnimatePresence>
 
             <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} autoComplete="name" />
-              <input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
-              <input type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="new-password" />
+              <input type="text" placeholder={t('signup.name')} value={name} onChange={e => setName(e.target.value)} style={inputStyle} autoComplete="name" />
+              <input type="email" placeholder={t('signup.email')} value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} autoComplete="email" />
+              <input type="password" placeholder={t('signup.password')} value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} autoComplete="new-password" />
 
               <motion.button
                 type="submit"
@@ -80,20 +82,20 @@ export default function SignUp() {
                 whileTap={{ scale: 0.98 }}
                 style={{ width: '100%', padding: '16px', background: loading ? '#111' : '#FFD700', border: loading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: loading ? '#444' : '#000', fontSize: 17, fontWeight: 900, cursor: loading ? 'default' : 'pointer', marginTop: 4 }}
               >
-                {loading ? 'Creating account…' : 'Continue →'}
+                {loading ? t('signup.creating') : t('signup.continue')}
               </motion.button>
             </form>
 
             <p style={{ color: '#222', fontSize: 12, textAlign: 'center', marginTop: 16, lineHeight: 1.5 }}>
-              By continuing you agree to our{' '}
-              <Link href="/terms" style={{ color: '#444', textDecoration: 'underline' }}>Terms</Link>
-              {' '}and{' '}
-              <Link href="/privacy" style={{ color: '#444', textDecoration: 'underline' }}>Privacy Policy</Link>
+              {t('signup.terms_prefix')}{' '}
+              <Link href="/terms" style={{ color: '#444', textDecoration: 'underline' }}>{t('signup.terms')}</Link>
+              {' '}{t('signup.and')}{' '}
+              <Link href="/privacy" style={{ color: '#444', textDecoration: 'underline' }}>{t('signup.privacy')}</Link>
             </p>
 
             <p style={{ color: '#333', textAlign: 'center', marginTop: 24, fontSize: 14 }}>
-              Already have an account?{' '}
-              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>Sign In</Link>
+              {t('signup.have_account')}{' '}
+              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>{t('signup.signin')}</Link>
             </p>
           </motion.div>
         ) : (
@@ -107,23 +109,23 @@ export default function SignUp() {
             <div style={{ width: 72, height: 72, background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', fontSize: 32 }}>
               ✉️
             </div>
-            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.5px' }}>Check Your Email</h1>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.5px' }}>{t('signup.check_email.title')}</h1>
             <p style={{ color: '#555', fontSize: 15, lineHeight: 1.7, marginBottom: 32 }}>
-              We sent a verification link to{' '}
-              <span style={{ color: '#FFD700' }}>{email}</span>.
-              Click the link to verify your account and continue.
+              {t('signup.check_email.sent')}{' '}
+              <span style={{ color: '#FFD700' }}>{email}</span>.{' '}
+              {t('signup.check_email.instruction')}
             </p>
             <p style={{ color: '#333', fontSize: 13, lineHeight: 1.6, marginBottom: 32 }}>
-              Don't see it? Check your spam folder.
+              {t('signup.check_email.spam')}
             </p>
             <button
               onClick={() => setSent(false)}
               style={{ color: '#555', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
             >
-              Try a different email
+              {t('signup.try_different')}
             </button>
             <div style={{ marginTop: 24 }}>
-              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>← Back to Sign In</Link>
+              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>{t('signup.back_signin')}</Link>
             </div>
           </motion.div>
         )}
