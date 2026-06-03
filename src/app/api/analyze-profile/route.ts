@@ -112,14 +112,17 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId)
       .single()
 
-    if (!profileRow?.raw_scraped_data || profileRow.scrape_status !== 'scraped') {
+    // Allow analysis (and re-analysis/retry) whenever raw scrape data exists —
+    // a previous attempt may have left scrape_status = 'failed', which we still want to retry.
+    const rawData = profileRow?.raw_scraped_data as Record<string, unknown> | null | undefined
+    if (!rawData || Object.keys(rawData).length === 0) {
       return NextResponse.json(
         { error: 'Profile must be scraped before analysis. Call /api/scrape first.' },
         { status: 400 }
       )
     }
 
-    const raw = profileRow.raw_scraped_data as Record<string, unknown>
+    const raw = rawData
     const recentPosts = (Array.isArray(raw.recent_posts) ? raw.recent_posts : [])
       .slice(0, 12)
       .map((p: Record<string, unknown>) => ({

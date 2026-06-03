@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -90,25 +90,39 @@ export default function Home() {
 
   const hasData = profile?.scrape_status === 'analyzed'
   const hasHandle = !!profile?.instagram_username
-  const pollCount = useRef(0)
-  const MAX_POLLS = 12 // stop after 2 minutes (12 × 10s)
+  // Has a handle but the analysis isn't finished (scrape done, Gemini didn't complete —
+  // e.g. the request dropped on mobile). This is the recoverable state.
+  const needsAnalysis = hasHandle && !hasData
 
-  // Poll Supabase every 10s while HikerAPI data exists but Gemini hasn't finished yet
-  useEffect(() => {
-    if (loading || !hasHandle || hasData) {
-      pollCount.current = 0
-      return
-    }
-    const interval = setInterval(() => {
-      pollCount.current += 1
-      if (pollCount.current >= MAX_POLLS) {
-        clearInterval(interval)
-        return
+  const [analyzeFailed, setAnalyzeFailed] = useState(false)
+  const analyzeTriggered = useRef(false)
+
+  const runAnalysis = useCallback(async () => {
+    setAnalyzeFailed(false)
+    try {
+      const res = await fetch('/api/analyze-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setAnalyzeFailed(true)
+      } else {
+        await reload() // profile now 'analyzed' → score + stats render
       }
-      reload()
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [loading, hasHandle, hasData, reload])
+    } catch {
+      setAnalyzeFailed(true)
+    }
+  }, [reload])
+
+  // Auto-finish the analysis once if the scrape succeeded but Gemini didn't complete
+  // (e.g. the request dropped on mobile). If it fails again, a retry button is shown.
+  useEffect(() => {
+    if (loading || !needsAnalysis || analyzeTriggered.current) return
+    analyzeTriggered.current = true
+    runAnalysis()
+  }, [loading, needsAnalysis, runAnalysis])
 
   const lastUpdated = profile?.last_scraped_at
     ? new Date(profile.last_scraped_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -155,14 +169,29 @@ export default function Home() {
         </motion.div>
       )}
 
-      {/* Analyzing banner — has handle but brand_score still 0 (scrape in progress or just completed) */}
+      {/* Analyzing banner — has handle but analysis not finished yet */}
       {!loading && hasHandle && !hasData && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
-            style={{ width: 18, height: 18, border: '2px solid #222', borderTopColor: '#FFD700', borderRadius: '50%', flexShrink: 0 }} />
-          <p style={{ color: '#555', fontSize: 13, margin: 0 }}>{t('dashboard.finalizing')}</p>
-        </motion.div>
+        !analyzeFailed ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+              style={{ width: 18, height: 18, border: '2px solid #222', borderTopColor: '#FFD700', borderRadius: '50%', flexShrink: 0 }} />
+            <p style={{ color: '#555', fontSize: 13, margin: 0 }}>{t('dashboard.finalizing')}</p>
+          </motion.div>
+        ) : (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            style={{ background: 'rgba(255,140,66,0.06)', border: '1px solid rgba(255,140,66,0.2)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: '#ff8c42', fontWeight: 700, fontSize: 13, margin: '0 0 2px' }}>{t('dashboard.analysis_failed.title')}</p>
+              <p style={{ color: '#444', fontSize: 12, margin: 0 }}>{t('dashboard.analysis_failed.desc')}</p>
+            </div>
+            <button onClick={runAnalysis}
+              style={{ background: '#FFD700', color: '#000', fontSize: 12, fontWeight: 800, padding: '6px 14px', borderRadius: 50, border: 'none', cursor: 'pointer', flexShrink: 0 }}>
+              {t('dashboard.analysis_failed.cta')}
+            </button>
+          </motion.div>
+        )
       )}
 
       {/* Score + Stats */}
