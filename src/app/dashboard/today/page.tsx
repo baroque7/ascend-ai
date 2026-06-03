@@ -30,7 +30,7 @@ function SkeletonCard() {
 export default function TodayPage() {
   const { user, supabase, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -88,7 +88,7 @@ export default function TodayPage() {
         signal: AbortSignal.timeout(55000),
         body: JSON.stringify({
           userProfile: profile,
-          language: profile?.language || 'English',
+          language,
           date: todayDate,
         }),
       })

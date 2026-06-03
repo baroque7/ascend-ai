@@ -61,7 +61,9 @@ function formatEngagement(n: number | undefined | null): string {
 export default function Home() {
   const { user, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading, reload } = useProfile()
-  const loading = authLoading || profileLoading
+  // Treat "logged in but profile not loaded yet" as still loading, so the
+  // "Set up your profile" banner never flashes for an onboarded user (esp. on slow/mobile)
+  const loading = authLoading || profileLoading || (!!user && !profile)
   const { t } = useTranslation()
 
   const TIPS = [

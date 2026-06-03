@@ -3,9 +3,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
-import { normalizeHandle, getStoredLanguage } from '@/lib/utils'
+import { normalizeHandle } from '@/lib/utils'
 import { useTranslation } from '@/hooks/useTranslation'
-import type { Language } from '@/lib/translations'
 
 type ProcessStatus = 'idle' | 'saving' | 'scraping' | 'storing' | 'done' | 'error' | 'not_found'
 
@@ -14,11 +13,7 @@ export default function Onboarding() {
   const { profile, loading: profileLoading } = useProfile()
 
   const [step, setStep] = useState(0)
-  const [language, setLanguage] = useState<Language>('English')
-  const { t } = useTranslation(language)
-
-  // Language is chosen on the landing page toggle — read it here
-  useEffect(() => { setLanguage(getStoredLanguage()) }, [])
+  const { t } = useTranslation()
 
   // Redirect already-onboarded users to dashboard
   useEffect(() => {
@@ -67,14 +62,13 @@ export default function Onboarding() {
       setStatusMsg(t('onboarding.status.saving'))
 
       await supabase.auth.updateUser({
-        data: { language, instagram_handle: cleanHandle },
+        data: { instagram_handle: cleanHandle },
       })
 
       if (user) {
         await supabase.from('users').upsert({
           id: user.id,
           instagram_username: cleanHandle,
-          language,
         }, { onConflict: 'id' })
       }
 
@@ -149,14 +143,8 @@ export default function Onboarding() {
     <div style={{ background: '#000', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: '24px', maxWidth: 480, margin: '0 auto' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 18 }}>GramScaling</span>
-        {step < 2 && (
-          <button onClick={() => { window.location.href = '/dashboard' }}
-            style={{ background: 'none', border: 'none', color: '#333', fontSize: 13, cursor: 'pointer', padding: 0 }}>
-            {t('onboarding.skip')}
-          </button>
-        )}
       </div>
 
       {/* Progress bar */}

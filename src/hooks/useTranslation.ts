@@ -1,9 +1,8 @@
 'use client'
-import { useProfile } from '@/hooks/useProfile'
-import { getT, type Language } from '@/lib/translations'
+import { useLanguage } from '@/contexts/LanguageContext'
 
-export function useTranslation(languageOverride?: string) {
-  const { profile } = useProfile()
-  const language = (languageOverride ?? profile?.language ?? 'English') as Language
-  return { t: getT(language), language }
+// Reads the app-wide language from LanguageContext (localStorage-backed, no DB).
+export function useTranslation() {
+  const { t, language } = useLanguage()
+  return { t, language }
 }

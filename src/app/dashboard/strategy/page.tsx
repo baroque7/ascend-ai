@@ -56,7 +56,7 @@ function Section({ icon, label, content, accent = '#FFD700' }: { icon: string; l
 export default function StrategyPage() {
   const { user, supabase, loading: authLoading } = useAuth()
   const { profile, loading: profileLoading } = useProfile()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [data, setData] = useState<StrategyData | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
@@ -100,7 +100,7 @@ export default function StrategyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(55000),
-        body: JSON.stringify({ userProfile: profile }),
+        body: JSON.stringify({ userProfile: { ...profile, language } }),
       })
       const json = await res.json()
       if (!res.ok || json.error) throw new Error(json.error || 'Strategy failed')

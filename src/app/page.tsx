@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
-import { getT, type Language } from '@/lib/translations'
-import { getStoredLanguage, setStoredLanguage } from '@/lib/utils'
+import { useTranslation } from '@/hooks/useTranslation'
+import LanguageToggle from '@/components/LanguageToggle'
 
 function AnimatedWord({ word, delay = 0 }: { word: string; delay?: number }) {
   return (
@@ -41,19 +41,10 @@ function CountUp({ end, duration = 2 }: { end: number; duration?: number }) {
 export default function Landing() {
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [installed, setInstalled] = useState(false)
-  const [language, setLanguage] = useState<Language>('English')
   const valueRef = useRef(null)
   const valueInView = useInView(valueRef, { once: true, margin: '-80px' })
 
-  const t = getT(language)
-
-  // Read the visitor's previously chosen language on mount
-  useEffect(() => { setLanguage(getStoredLanguage()) }, [])
-
-  function chooseLanguage(lang: Language) {
-    setLanguage(lang)
-    setStoredLanguage(lang)
-  }
+  const { t } = useTranslation()
 
   useEffect(() => {
     const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e) }
@@ -102,30 +93,7 @@ export default function Landing() {
       >
         <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 20, letterSpacing: '-0.5px' }}>GramScaling</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* Language toggle */}
-          <div style={{ display: 'flex', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 50, padding: 3 }}>
-            {(['English', 'Spanish'] as Language[]).map(lang => {
-              const active = language === lang
-              return (
-                <button
-                  key={lang}
-                  onClick={() => chooseLanguage(lang)}
-                  style={{
-                    background: active ? '#FFD700' : 'transparent',
-                    color: active ? '#000' : '#666',
-                    border: 'none',
-                    borderRadius: 50,
-                    padding: '5px 12px',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {lang === 'English' ? 'EN' : 'ES'}
-                </button>
-              )
-            })}
-          </div>
+          <LanguageToggle />
           <Link href="/login" style={{ color: '#444', fontSize: 14, textDecoration: 'none', fontWeight: 500 }}>{t('landing.signin')}</Link>
         </div>
       </motion.nav>

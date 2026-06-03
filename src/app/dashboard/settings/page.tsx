@@ -5,16 +5,14 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useProfile } from '@/hooks/useProfile'
 import { normalizeHandle } from '@/lib/utils'
 import { useTranslation } from '@/hooks/useTranslation'
+import LanguageToggle from '@/components/LanguageToggle'
 import { motion } from 'framer-motion'
-
-const LANGUAGES = ['English', 'Spanish']
 
 export default function SettingsPage() {
   const { user, signOut, supabase, loading: authLoading } = useAuth()
-  const { profile, updateProfile } = useProfile()
+  const { profile } = useProfile()
   const { t } = useTranslation()
   const [handle, setHandle] = useState('')
-  const [language, setLanguage] = useState('English')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [scraping, setScraping] = useState(false)
@@ -24,7 +22,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!authLoading && profile) {
       setHandle(profile.instagram_username || '')
-      setLanguage(profile.language || 'English')
     }
   }, [authLoading, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -35,30 +32,22 @@ export default function SettingsPage() {
     setSaving(true)
     setError('')
     const cleanHandle = normalizeHandle(handle)
-    const hadHandle = profile?.instagram_username
-    const handleChanged = cleanHandle !== hadHandle
+    const handleChanged = cleanHandle !== profile?.instagram_username
 
-    // Always save language to auth metadata
-    await supabase.auth.updateUser({ data: { instagram_handle: cleanHandle, language } })
-
-    // If only language changed, save and reload so the whole app
-    // (pages, nav, and AI content) all switch language together
+    // Language is changed instantly via the toggle, so the only thing
+    // Save commits is a new Instagram handle. Nothing to do if unchanged.
     if (!handleChanged) {
-      await updateProfile({ language })
       setSaving(false)
       setSaved(true)
-      setTimeout(() => { window.location.reload() }, 600)
+      setTimeout(() => setSaved(false), 2000)
       return
     }
 
-    // Username changed — scrape handles ALL database writes
+    // Username changed — scrape + analyze handles all database writes
     setSaving(false)
     setScraping(true)
 
     try {
-      // Save language immediately — username only commits after successful scrape
-      await supabase.from('users').update({ language }).eq('id', user?.id)
-
       const scrapeRes = await fetch('/api/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,15 +166,7 @@ export default function SettingsPage() {
         <label style={{ color: '#444', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, display: 'block', marginBottom: 8 }}>
           {t('settings.language_label')}
         </label>
-        <select
-          value={language}
-          onChange={e => setLanguage(e.target.value)}
-          style={{ width: '100%', padding: '14px 16px', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 15, boxSizing: 'border-box', outline: 'none', appearance: 'none', cursor: 'pointer' }}
-        >
-          {LANGUAGES.map(l => (
-            <option key={l} value={l} style={{ background: '#111' }}>{l}</option>
-          ))}
-        </select>
+        <LanguageToggle />
       </motion.div>
 
       {/* Save */}
