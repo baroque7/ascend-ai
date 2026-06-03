@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { motion, useInView, AnimatePresence } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import { useTranslation } from '@/hooks/useTranslation'
 import LanguageToggle from '@/components/LanguageToggle'
 
@@ -39,25 +39,10 @@ function CountUp({ end, duration = 2 }: { end: number; duration?: number }) {
 }
 
 export default function Landing() {
-  const [installPrompt, setInstallPrompt] = useState<any>(null)
-  const [installed, setInstalled] = useState(false)
   const valueRef = useRef(null)
   const valueInView = useInView(valueRef, { once: true, margin: '-80px' })
 
   const { t } = useTranslation()
-
-  useEffect(() => {
-    const handler = (e: any) => { e.preventDefault(); setInstallPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  async function handleInstall() {
-    if (!installPrompt) return
-    installPrompt.prompt()
-    const { outcome } = await installPrompt.userChoice
-    if (outcome === 'accepted') { setInstalled(true); setInstallPrompt(null) }
-  }
 
   const headlineWords = t('landing.headline').split(' ')
 
@@ -155,25 +140,6 @@ export default function Landing() {
           >
             {t('landing.cta')}
           </Link>
-
-          <AnimatePresence>
-            {installPrompt && !installed && (
-              <motion.button
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                onClick={handleInstall}
-                style={{ background: 'transparent', border: '1px solid rgba(255,215,0,0.25)', color: '#FFD700', padding: '14px 24px', borderRadius: 50, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                {t('landing.install')}
-              </motion.button>
-            )}
-            {installed && (
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ color: '#FFD700', textAlign: 'center', fontSize: 14 }}>
-                {t('landing.installed')}
-              </motion.p>
-            )}
-          </AnimatePresence>
         </motion.div>
 
         <motion.p
