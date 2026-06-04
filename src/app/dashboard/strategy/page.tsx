@@ -137,7 +137,10 @@ export default function StrategyPage() {
 
   const isLoading = authLoading || profileLoading || (generating && !data)
 
-  if (!authLoading && !profileLoading && !profile?.instagram_username) {
+  // "Not set up" only when a scrape has genuinely never run (status 'pending').
+  // Keying off scrape_status (from the profiles query) instead of instagram_username
+  // (from the users query) avoids a false negative when the users query drops on mobile.
+  if (!authLoading && !profileLoading && (profile?.scrape_status ?? 'pending') === 'pending') {
     return (
       <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>

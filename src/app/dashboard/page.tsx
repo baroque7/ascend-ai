@@ -88,11 +88,14 @@ export default function Home() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? t('dashboard.greeting.morning') : hour < 17 ? t('dashboard.greeting.afternoon') : t('dashboard.greeting.evening')
 
-  const hasData = profile?.scrape_status === 'analyzed'
-  const hasHandle = !!profile?.instagram_username
-  // Has a handle but the analysis isn't finished (scrape done, Gemini didn't complete —
-  // e.g. the request dropped on mobile). This is the recoverable state.
-  const needsAnalysis = hasHandle && !hasData
+  // Drive the banners off scrape_status (from the profiles table) rather than the
+  // instagram_username (from the users table). The two come from separate queries, and on
+  // flaky mobile one can fail while the other succeeds — keying off status avoids showing
+  // "set up your profile" to a user whose analysis actually completed.
+  const status = profile?.scrape_status ?? 'pending'
+  const hasData = status === 'analyzed'
+  const neverSetUp = status === 'pending'          // scrape has never run
+  const needsAnalysis = status === 'scraped' || status === 'failed' // scrape done, analysis didn't finish
 
   const [analyzeFailed, setAnalyzeFailed] = useState(false)
   const analyzeTriggered = useRef(false)
@@ -154,8 +157,8 @@ export default function Home() {
         <p style={{ color: '#333', fontSize: 14, margin: 0, lineHeight: 1.5 }}>{tip}</p>
       </motion.div>
 
-      {/* Never-set-up banner — only for users with no instagram handle at all */}
-      {!loading && !hasHandle && (
+      {/* Never-set-up banner — only for users who have never run a scrape */}
+      {!loading && neverSetUp && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{ background: 'rgba(255,215,0,0.05)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 20 }}>⚡</span>
@@ -169,8 +172,8 @@ export default function Home() {
         </motion.div>
       )}
 
-      {/* Analyzing banner — has handle but analysis not finished yet */}
-      {!loading && hasHandle && !hasData && (
+      {/* Analyzing banner — scrape done but analysis not finished yet */}
+      {!loading && needsAnalysis && (
         !analyzeFailed ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>

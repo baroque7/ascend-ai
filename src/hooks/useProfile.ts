@@ -115,10 +115,13 @@ export function useProfile() {
     ])
 
     if (u || p) {
+      const meta = user.user_metadata || {}
       const merged: UserProfile = {
         id: user.id,
         ...DEFAULTS,
-        instagram_username: u?.instagram_username ?? '',
+        // Fall back to auth metadata if the users-table query hiccupped (e.g. flaky mobile),
+        // so a dropped query doesn't make an onboarded user look like they have no handle.
+        instagram_username: u?.instagram_username || meta.instagram_handle || meta.instagram_username || '',
         language: u?.language ?? 'English',
         is_subscribed: u?.is_subscribed ?? false,
         is_promo: u?.is_promo ?? false,
