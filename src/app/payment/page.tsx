@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -8,6 +9,7 @@ const PROMO_CODE = 'MIHAWK41'
 
 export default function Payment() {
   const { user, supabase, loading } = useAuth()
+  const { t } = useTranslation()
   const [promo, setPromo] = useState('')
   const [promoError, setPromoError] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
@@ -23,8 +25,8 @@ export default function Payment() {
   async function handlePromo(e: React.SyntheticEvent) {
     e.preventDefault()
     const code = promo.trim().toUpperCase()
-    if (!code) { setPromoError('Enter a promo code'); return }
-    if (code !== PROMO_CODE) { setPromoError('Invalid promo code'); return }
+    if (!code) { setPromoError(t('payment.error.enter_promo')); return }
+    if (code !== PROMO_CODE) { setPromoError(t('payment.error.invalid_promo')); return }
     if (!user) { window.location.href = '/signup'; return }
 
     setPromoLoading(true)
@@ -43,7 +45,7 @@ export default function Payment() {
       console.log('[payment] promo success — user:', user?.id)
       window.location.href = '/onboarding'
     } catch (err: any) {
-      setPromoError(err.message || 'Something went wrong. Try again.')
+      setPromoError(err.message || t('payment.error.generic'))
       setPromoLoading(false)
     }
   }
@@ -62,18 +64,18 @@ export default function Payment() {
       if (!res.ok || data.error) throw new Error(data.error || 'Checkout failed')
       if (data.url) window.location.href = data.url
     } catch (err: any) {
-      setCheckoutError(err.message || 'Could not start checkout. Please try again.')
+      setCheckoutError(err.message || t('payment.error.checkout'))
     }
     setCheckoutLoading(false)
   }
 
   const features = [
-    'Your unique brand identity analyzed',
-    'Daily scripts written in your language',
-    'US-targeted hashtag strategy',
-    'Best posting windows for US reach',
-    'Follower growth dashboard',
-    'Priority email support',
+    t('payment.feature.1'),
+    t('payment.feature.2'),
+    t('payment.feature.3'),
+    t('payment.feature.4'),
+    t('payment.feature.5'),
+    t('payment.feature.6'),
   ]
 
   return (
@@ -88,12 +90,12 @@ export default function Payment() {
           GramScaling
         </Link>
 
-        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>Start Your Free Trial</h1>
-        <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>5 days free, then $69.99/month.</p>
+        <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 900, textAlign: 'center', marginBottom: 6, letterSpacing: '-0.5px' }}>{t('payment.title')}</h1>
+        <p style={{ color: '#444', textAlign: 'center', fontSize: 15, marginBottom: 32 }}>{t('payment.subtitle')}</p>
 
         <div style={{ background: '#0a0a0a', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 20, padding: '24px', marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <span style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>GramScaling Pro</span>
+            <span style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>{t('payment.plan')}</span>
             <span style={{ color: '#FFD700', fontWeight: 900, fontSize: 20 }}>$69.99<span style={{ color: '#333', fontWeight: 400, fontSize: 13 }}>/mo</span></span>
           </div>
           {features.map(f => (
@@ -115,12 +117,12 @@ export default function Payment() {
 
         <motion.button onClick={handleCheckout} disabled={checkoutLoading} whileTap={{ scale: 0.98 }}
           style={{ width: '100%', padding: '17px', background: checkoutLoading ? '#111' : '#FFD700', border: checkoutLoading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: checkoutLoading ? '#444' : '#000', fontSize: 17, fontWeight: 900, cursor: checkoutLoading ? 'default' : 'pointer', marginBottom: 20, letterSpacing: '-0.2px' }}>
-          {checkoutLoading ? 'Redirecting to checkout…' : 'Pay with Card →'}
+          {checkoutLoading ? t('payment.redirecting') : t('payment.pay')}
         </motion.button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
-          <span style={{ color: '#333', fontSize: 12 }}>or use promo code</span>
+          <span style={{ color: '#333', fontSize: 12 }}>{t('payment.or_promo')}</span>
           <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
         </div>
 
@@ -128,11 +130,11 @@ export default function Payment() {
           <div style={{ display: 'flex', gap: 8 }}>
             <input type="text" value={promo}
               onChange={e => { setPromo(e.target.value.toUpperCase()); setPromoError('') }}
-              placeholder="PROMO CODE"
+              placeholder={t('payment.promo_placeholder')}
               style={{ flex: 1, padding: '14px 16px', background: '#111', border: `1px solid ${promo ? 'rgba(255,215,0,0.3)' : '#1a1a1a'}`, borderRadius: 12, color: promo ? '#FFD700' : '#666', fontSize: 15, fontWeight: 700, outline: 'none', letterSpacing: 2 }} />
             <motion.button type="submit" disabled={promoLoading} whileTap={{ scale: 0.96 }}
               style={{ padding: '14px 20px', background: promo ? 'rgba(255,215,0,0.1)' : '#0a0a0a', border: `1px solid ${promo ? 'rgba(255,215,0,0.3)' : '#1a1a1a'}`, borderRadius: 12, color: promo ? '#FFD700' : '#333', fontSize: 14, fontWeight: 700, cursor: promoLoading ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-              {promoLoading ? '…' : 'Apply'}
+              {promoLoading ? '…' : t('payment.apply')}
             </motion.button>
           </div>
           <AnimatePresence>
@@ -146,7 +148,7 @@ export default function Payment() {
         </form>
 
         <p style={{ color: '#2a2a2a', fontSize: 12, textAlign: 'center', marginTop: 24, lineHeight: 1.5 }}>
-          Secure payment · No hidden fees
+          {t('payment.secure')}
         </p>
       </motion.div>
     </div>

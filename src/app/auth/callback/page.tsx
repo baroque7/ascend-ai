@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { motion } from 'framer-motion'
 import { Suspense } from 'react'
+import { useTranslation } from '@/hooks/useTranslation'
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,7 @@ function CallbackContent() {
   const [message, setMessage] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useTranslation()
 
   useEffect(() => {
     async function handleCallback() {
@@ -26,7 +28,7 @@ function CallbackContent() {
 
       if (errorParam) {
         setStatus('error')
-        setMessage(errorDescription || 'Authentication failed. Please try again.')
+        setMessage(errorDescription || t('callback.auth_failed'))
         return
       }
 
@@ -51,15 +53,15 @@ function CallbackContent() {
 
       if (type === 'recovery') {
         setStatus('success')
-        setMessage('Password reset successful! Redirecting…')
+        setMessage(t('callback.reset_success'))
         setTimeout(() => router.push('/reset-password'), 2000)
       } else if (type === 'signup') {
         setStatus('success')
-        setMessage('Email verified! Redirecting to payment…')
+        setMessage(t('callback.email_verified'))
         setTimeout(() => router.push('/payment'), 2000)
       } else {
         setStatus('success')
-        setMessage('Authenticated! Redirecting…')
+        setMessage(t('callback.authenticated'))
         setTimeout(() => router.push('/dashboard'), 1500)
       }
     }
@@ -81,26 +83,26 @@ function CallbackContent() {
               transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
               style={{ width: 48, height: 48, border: '3px solid #1a1a1a', borderTopColor: '#FFD700', borderRadius: '50%', margin: '0 auto 24px' }}
             />
-            <p style={{ color: '#555', fontSize: 16 }}>Verifying…</p>
+            <p style={{ color: '#555', fontSize: 16 }}>{t('callback.verifying')}</p>
           </>
         )}
         {status === 'success' && (
           <>
             <div style={{ fontSize: 52, marginBottom: 20 }}>✅</div>
-            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Success!</h2>
+            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>{t('callback.success')}</h2>
             <p style={{ color: '#555', fontSize: 15 }}>{message}</p>
           </>
         )}
         {status === 'error' && (
           <>
             <div style={{ fontSize: 52, marginBottom: 20 }}>❌</div>
-            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Something went wrong</h2>
+            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>{t('callback.error_title')}</h2>
             <p style={{ color: '#ff6b6b', fontSize: 15, marginBottom: 24 }}>{message}</p>
             <button
               onClick={() => router.push('/login')}
               style={{ background: '#FFD700', color: '#000', border: 'none', borderRadius: 50, padding: '14px 32px', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
             >
-              Back to Sign In
+              {t('callback.back_signin')}
             </button>
           </>
         )}

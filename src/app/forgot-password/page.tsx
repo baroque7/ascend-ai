@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@supabase/supabase-js'
+import { useTranslation } from '@/hooks/useTranslation'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,10 +15,11 @@ export default function ForgotPassword() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const { t } = useTranslation()
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
-    if (!email.trim()) { setError('Please enter your email'); return }
+    if (!email.trim()) { setError(t('forgot.error.email')); return }
     setLoading(true); setError('')
     try {
       const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
@@ -26,7 +28,7 @@ export default function ForgotPassword() {
       if (err) throw err
       setSent(true)
     } catch (err: any) {
-      setError(err.message || 'Failed to send reset email. Please try again.')
+      setError(err.message || t('forgot.error.failed'))
     }
     setLoading(false)
   }
@@ -50,8 +52,8 @@ export default function ForgotPassword() {
               <div style={{ width: 64, height: 64, background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>
                 ✉️
               </div>
-              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>Forgot Password?</h1>
-              <p style={{ color: '#555', fontSize: 15, lineHeight: 1.6 }}>Enter your email and we'll send a reset link.</p>
+              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>{t('forgot.title')}</h1>
+              <p style={{ color: '#555', fontSize: 15, lineHeight: 1.6 }}>{t('forgot.subtitle')}</p>
             </div>
 
             {error && (
@@ -62,7 +64,7 @@ export default function ForgotPassword() {
 
             <form onSubmit={handleSubmit}>
               <input
-                type="email" placeholder="Email address" value={email}
+                type="email" placeholder={t('forgot.email')} value={email}
                 onChange={e => setEmail(e.target.value)}
                 style={{ width: '100%', padding: '15px 16px', background: '#111', border: '1px solid #1a1a1a', borderRadius: 12, color: '#fff', fontSize: 16, boxSizing: 'border-box', outline: 'none', marginBottom: 16 }}
                 autoComplete="email"
@@ -73,12 +75,12 @@ export default function ForgotPassword() {
                 whileTap={{ scale: 0.98 }}
                 style={{ width: '100%', padding: '16px', background: loading ? '#B8960C' : '#FFD700', border: 'none', borderRadius: 50, color: '#000', fontSize: 17, fontWeight: 800, cursor: loading ? 'default' : 'pointer' }}
               >
-                {loading ? 'Sending…' : 'Send Reset Link'}
+                {loading ? t('forgot.sending') : t('forgot.send')}
               </motion.button>
             </form>
 
             <p style={{ color: '#444', textAlign: 'center', marginTop: 28, fontSize: 14 }}>
-              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>← Back to Sign In</Link>
+              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700 }}>{t('forgot.back_signin')}</Link>
             </p>
           </motion.div>
         ) : (
@@ -92,20 +94,20 @@ export default function ForgotPassword() {
             <div style={{ width: 72, height: 72, background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', fontSize: 32 }}>
               ✅
             </div>
-            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.5px' }}>Check Your Email</h1>
+            <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 12, letterSpacing: '-0.5px' }}>{t('forgot.check_email.title')}</h1>
             <p style={{ color: '#555', fontSize: 15, lineHeight: 1.7, marginBottom: 32 }}>
-              We sent a reset link to{' '}
-              <span style={{ color: '#FFD700' }}>{email}</span>.
-              Check your inbox (and spam folder).
+              {t('forgot.check_email.sent')}{' '}
+              <span style={{ color: '#FFD700' }}>{email}</span>.{' '}
+              {t('forgot.check_email.instruction')}
             </p>
             <button
               onClick={() => setSent(false)}
               style={{ color: '#555', fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
             >
-              Try a different email
+              {t('forgot.try_different')}
             </button>
             <div style={{ marginTop: 24 }}>
-              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>← Back to Sign In</Link>
+              <Link href="/login" style={{ color: '#FFD700', textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>{t('forgot.back_signin')}</Link>
             </div>
           </motion.div>
         )}

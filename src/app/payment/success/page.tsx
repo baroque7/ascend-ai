@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { motion } from 'framer-motion'
 import { Suspense } from 'react'
+import { useTranslation } from '@/hooks/useTranslation'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,7 @@ const supabase = createClient(
 function SuccessContent() {
   const [status, setStatus] = useState<'loading' | 'done'>('loading')
   const searchParams = useSearchParams()
+  const { t } = useTranslation()
 
   useEffect(() => {
     async function activate() {
@@ -33,14 +35,14 @@ function SuccessContent() {
           <>
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
               style={{ width: 48, height: 48, border: '3px solid #1a1a1a', borderTopColor: '#FFD700', borderRadius: '50%', margin: '0 auto 24px' }} />
-            <p style={{ color: '#555', fontSize: 16 }}>Confirming your payment…</p>
+            <p style={{ color: '#555', fontSize: 16 }}>{t('payment_success.confirming')}</p>
           </>
         ) : (
           <>
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}
               style={{ fontSize: 64, marginBottom: 20 }}>🎉</motion.div>
-            <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 900, marginBottom: 10, letterSpacing: '-0.5px' }}>Payment Confirmed!</h2>
-            <p style={{ color: '#555', fontSize: 15 }}>Welcome to GramScaling. Setting up your dashboard…</p>
+            <h2 style={{ color: '#fff', fontSize: 24, fontWeight: 900, marginBottom: 10, letterSpacing: '-0.5px' }}>{t('payment_success.title')}</h2>
+            <p style={{ color: '#555', fontSize: 15 }}>{t('payment_success.subtitle')}</p>
             <motion.div animate={{ width: ['0%', '100%'] }} transition={{ duration: 2, ease: 'linear' }}
               style={{ height: 2, background: '#FFD700', marginTop: 24, borderRadius: 1 }} />
           </>

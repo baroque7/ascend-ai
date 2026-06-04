@@ -1,11 +1,13 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function ResetPassword() {
   const { supabase } = useAuth()
+  const { t } = useTranslation()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
@@ -21,9 +23,9 @@ export default function ResetPassword() {
 
   async function handleReset(e: React.SyntheticEvent) {
     e.preventDefault()
-    if (!password || !confirm) { setError('Please fill in both fields'); return }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return }
-    if (password !== confirm) { setError('Passwords do not match'); return }
+    if (!password || !confirm) { setError(t('reset.error.fields')); return }
+    if (password.length < 6) { setError(t('reset.error.length')); return }
+    if (password !== confirm) { setError(t('reset.error.match')); return }
 
     setLoading(true)
     setError('')
@@ -34,7 +36,7 @@ export default function ResetPassword() {
       setDone(true)
       setTimeout(() => { window.location.href = '/dashboard' }, 2000)
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password. Please try again.')
+      setError(err.message || t('reset.error.failed'))
       setLoading(false)
     }
   }
@@ -59,8 +61,8 @@ export default function ResetPassword() {
               <div style={{ width: 64, height: 64, background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>
                 🔒
               </div>
-              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>Set New Password</h1>
-              <p style={{ color: '#555', fontSize: 15, lineHeight: 1.6 }}>Enter your new password below.</p>
+              <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.5px' }}>{t('reset.title')}</h1>
+              <p style={{ color: '#555', fontSize: 15, lineHeight: 1.6 }}>{t('reset.subtitle')}</p>
             </div>
 
             <AnimatePresence>
@@ -75,7 +77,7 @@ export default function ResetPassword() {
             <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input
                 type="password"
-                placeholder="New password (min 6 chars)"
+                placeholder={t('reset.password')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 style={inputStyle}
@@ -83,7 +85,7 @@ export default function ResetPassword() {
               />
               <input
                 type="password"
-                placeholder="Confirm new password"
+                placeholder={t('reset.confirm')}
                 value={confirm}
                 onChange={e => setConfirm(e.target.value)}
                 style={inputStyle}
@@ -95,7 +97,7 @@ export default function ResetPassword() {
                 whileTap={{ scale: 0.98 }}
                 style={{ width: '100%', padding: '16px', background: loading ? '#111' : '#FFD700', border: loading ? '1px solid #1a1a1a' : 'none', borderRadius: 50, color: loading ? '#444' : '#000', fontSize: 17, fontWeight: 900, cursor: loading ? 'default' : 'pointer', marginTop: 4 }}
               >
-                {loading ? 'Updating…' : 'Reset Password'}
+                {loading ? t('reset.updating') : t('reset.submit')}
               </motion.button>
             </form>
           </motion.div>
@@ -108,8 +110,8 @@ export default function ResetPassword() {
             style={{ width: '100%', maxWidth: 400, textAlign: 'center' }}
           >
             <div style={{ fontSize: 52, marginBottom: 20 }}>✅</div>
-            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Password Updated!</h2>
-            <p style={{ color: '#555', fontSize: 15 }}>Redirecting to your dashboard…</p>
+            <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800, marginBottom: 12 }}>{t('reset.done.title')}</h2>
+            <p style={{ color: '#555', fontSize: 15 }}>{t('reset.done.subtitle')}</p>
           </motion.div>
         )}
       </AnimatePresence>
