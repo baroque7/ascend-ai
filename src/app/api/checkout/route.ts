@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
         },
       }
     )
+    // The user id comes from the verified session — never from the request body —
+    // so the metadata Creem echoes back in the webhook is trustworthy.
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
@@ -27,38 +29,38 @@ export async function POST(request: NextRequest) {
     const email = user.email!
     const userId = user.id
 
-    const accessToken = process.env.POLAR_ACCESS_TOKEN
-    const productId = process.env.POLAR_PRODUCT_ID
+    const apiKey = process.env.CREEM_API_KEY
+    const productId = process.env.CREEM_PRODUCT_ID
+    const apiUrl = process.env.CREEM_API_URL || 'https://api.creem.io'
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gramscaling.com'
 
-    if (!accessToken || !productId) {
+    if (!apiKey || !productId) {
       return NextResponse.json({ error: 'Payment not configured' }, { status: 500 })
     }
 
-    const response = await fetch('https://api.polar.sh/v1/checkouts/', {
+    const response = await fetch(`${apiUrl}/v1/checkouts`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         product_id: productId,
-        customer_email: email,
-        metadata: { user_id: userId },
-        success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_ID}`,
-        cancel_url: `${baseUrl}/payment`,
+        success_url: `${baseUrl}/payment/success`,
+        customer: { email },
+        metadata: { userId },
       }),
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      console.error('Polar checkout error:', data)
-      return NextResponse.json({ error: data.detail || 'Checkout creation failed' }, { status: response.status })
+      console.error('Creem checkout error:', data)
+      return NextResponse.json({ error: 'Checkout creation failed' }, { status: response.status })
     }
 
-    return NextResponse.json({ url: data.url })
-  } catch (error: any) {
+    return NextResponse.json({ url: data.checkout_url })
+  } catch (error: unknown) {
     console.error('Checkout error:', error)
     return NextResponse.json({ error: 'Failed to create checkout' }, { status: 500 })
   }
