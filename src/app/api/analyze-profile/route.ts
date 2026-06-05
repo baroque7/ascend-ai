@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { logServerError } from '@/lib/logError'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -275,6 +276,12 @@ Return exactly this JSON:
   } catch (err: unknown) {
     console.error('[analyze-profile] Unhandled error:', err)
     const msg = err instanceof Error ? err.message : 'Unknown error'
+    // Record the real reason so it shows up in the error_logs table
+    await logServerError(`analyze-profile failed: ${msg}`, {
+      url: '/api/analyze-profile',
+      userId: userId ?? undefined,
+      stack: err instanceof Error ? err.stack : undefined,
+    })
     if (userId && SERVICE_ROLE_KEY) {
       try {
         const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)

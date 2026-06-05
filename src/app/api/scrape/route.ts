@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { logServerError } from '@/lib/logError'
 import { normalizeHandle } from '@/lib/utils'
 
 const HIKERAPI_KEY = process.env.HIKERAPI_KEY || process.env.HIKER_API_KEY
@@ -200,6 +201,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, hikerSuccess, scrapedData })
   } catch (err: any) {
     console.error('[scrape] Unhandled error:', err)
+    await logServerError(`scrape failed: ${err?.message ?? 'Unknown error'}`, {
+      url: '/api/scrape',
+      userId: userId ?? undefined,
+      stack: err instanceof Error ? err.stack : undefined,
+    })
     if (userId && SERVICE_ROLE_KEY) {
       try {
         const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)

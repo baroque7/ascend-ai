@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { logServerError } from '@/lib/logError'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
@@ -177,6 +178,10 @@ Generate exactly 5 ideas. Return a JSON array.`
 
   } catch (err: any) {
     console.error('[generate] Error:', err)
+    await logServerError(`generate failed: ${err?.message ?? 'Unknown error'}`, {
+      url: '/api/generate',
+      stack: err instanceof Error ? err.stack : undefined,
+    })
 
     if (err.message === 'RATE_LIMIT') {
       return NextResponse.json({ error: 'AI limit reached. Please try again in a moment.' }, { status: 429 })
