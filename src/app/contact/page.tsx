@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
+import { isValidEmail } from '@/lib/utils'
 
 export default function ContactPage() {
   const { user, loading: authLoading } = useAuth()
@@ -19,6 +20,7 @@ export default function ContactPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (loading) return
+    if (!isValidEmail(email)) { setError(t('validation.email')); return }
     setLoading(true)
     setError('')
 

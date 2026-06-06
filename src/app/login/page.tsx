@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
+import { isValidEmail } from '@/lib/utils'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { AnimatePresence } from 'framer-motion'
@@ -24,6 +25,7 @@ export default function Login() {
   async function handleLogin(e: React.SyntheticEvent) {
     e.preventDefault()
     if (!email || !password) { setError(t('login.error.fields')); return }
+    if (!isValidEmail(email)) { setError(t('validation.email')); return }
     setLoading(true); setError('')
     const result = await signIn(email, password)
     if (result.error) { setError(result.error); setLoading(false); return }

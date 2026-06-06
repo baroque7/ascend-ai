@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@supabase/supabase-js'
 import { useTranslation } from '@/hooks/useTranslation'
+import { isValidEmail } from '@/lib/utils'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,6 +21,7 @@ export default function ForgotPassword() {
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault()
     if (!email.trim()) { setError(t('forgot.error.email')); return }
+    if (!isValidEmail(email)) { setError(t('validation.email')); return }
     setLoading(true); setError('')
     try {
       const { error: err } = await supabase.auth.resetPasswordForEmail(email, {

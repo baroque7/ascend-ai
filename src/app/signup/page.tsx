@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
+import { isValidEmail } from '@/lib/utils'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -36,7 +37,8 @@ export default function SignUp() {
   async function handleSignUp(e: React.SyntheticEvent) {
     e.preventDefault()
     if (!name.trim() || !email.trim() || !password) { setError(t('signup.error.fields')); return }
-    if (password.length < 6) { setError(t('signup.error.password')); return }
+    if (!isValidEmail(email)) { setError(t('validation.email')); return }
+    if (password.length < 8) { setError(t('signup.error.password')); return }
     setLoading(true); setError('')
     const result = await signUp(email.trim(), password, name.trim())
     if (result.error) { setError(result.error); setLoading(false); return }

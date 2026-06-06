@@ -12,20 +12,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true }) // silently succeed so bots don't know they were blocked
     }
 
-    if (!name || !email || !message) {
+    const cleanName = String(name ?? '').trim()
+    const cleanEmail = String(email ?? '').trim()
+    const cleanMessage = String(message ?? '').trim()
+
+    // Presence (after trimming, so whitespace-only doesn't pass)
+    if (!cleanName || !cleanEmail || !cleanMessage) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    // Length caps — stop oversized/abusive payloads
+    if (cleanName.length > 100 || cleanEmail.length > 200 || cleanMessage.length > 5000) {
+      return NextResponse.json({ error: 'Input is too long.' }, { status: 400 })
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 })
     }
 
     await resend.emails.send({
       from: 'GramScaling <support@gramscaling.com>',
       to: 'baroqueincoporated@gmail.com',
-      replyTo: email,
-      subject: `Contact form: ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+      replyTo: cleanEmail,
+      subject: `Contact form: ${cleanName}`,
+      text: `Name: ${cleanName}\nEmail: ${cleanEmail}\n\nMessage:\n${cleanMessage}`,
     })
 
     return NextResponse.json({ success: true })

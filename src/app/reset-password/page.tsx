@@ -24,7 +24,7 @@ export default function ResetPassword() {
   async function handleReset(e: React.SyntheticEvent) {
     e.preventDefault()
     if (!password || !confirm) { setError(t('reset.error.fields')); return }
-    if (password.length < 6) { setError(t('reset.error.length')); return }
+    if (password.length < 8) { setError(t('reset.error.length')); return }
     if (password !== confirm) { setError(t('reset.error.match')); return }
 
     setLoading(true)

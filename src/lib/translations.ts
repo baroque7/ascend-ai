@@ -188,10 +188,10 @@ const translations = {
     'signup.title': 'Create Your Account',
     'signup.subtitle': 'Start your 5-day free trial',
     'signup.error.fields': 'Please fill in all fields',
-    'signup.error.password': 'Password must be at least 6 characters',
+    'signup.error.password': 'Password must be at least 8 characters',
     'signup.name': 'Full Name',
     'signup.email': 'Email address',
-    'signup.password': 'Password (min 6 chars)',
+    'signup.password': 'Password (min 8 chars)',
     'signup.creating': 'Creating account…',
     'signup.continue': 'Continue →',
     'signup.terms_prefix': 'By continuing you agree to our',
@@ -218,6 +218,9 @@ const translations = {
     'login.signin': 'Sign In',
     'login.no_account': "Don't have an account?",
     'login.signup': 'Sign Up',
+
+    // Shared validation
+    'validation.email': 'Please enter a valid email address.',
 
     // Auth callback (after clicking the email link)
     'callback.verifying': 'Verifying…',
@@ -247,10 +250,10 @@ const translations = {
     'reset.title': 'Set New Password',
     'reset.subtitle': 'Enter your new password below.',
     'reset.error.fields': 'Please fill in both fields',
-    'reset.error.length': 'Password must be at least 6 characters',
+    'reset.error.length': 'Password must be at least 8 characters',
     'reset.error.match': 'Passwords do not match',
     'reset.error.failed': 'Failed to reset password. Please try again.',
-    'reset.password': 'New password (min 6 chars)',
+    'reset.password': 'New password (min 8 chars)',
     'reset.confirm': 'Confirm new password',
     'reset.updating': 'Updating…',
     'reset.submit': 'Reset Password',
@@ -525,10 +528,10 @@ const translations = {
     'signup.title': 'Crea tu cuenta',
     'signup.subtitle': 'Comienza tu prueba gratis de 5 días',
     'signup.error.fields': 'Por favor completa todos los campos',
-    'signup.error.password': 'La contraseña debe tener al menos 6 caracteres',
+    'signup.error.password': 'La contraseña debe tener al menos 8 caracteres',
     'signup.name': 'Nombre completo',
     'signup.email': 'Correo electrónico',
-    'signup.password': 'Contraseña (mín. 6 caracteres)',
+    'signup.password': 'Contraseña (mín. 8 caracteres)',
     'signup.creating': 'Creando cuenta…',
     'signup.continue': 'Continuar →',
     'signup.terms_prefix': 'Al continuar aceptas nuestros',
@@ -555,6 +558,9 @@ const translations = {
     'login.signin': 'Iniciar sesión',
     'login.no_account': '¿No tienes una cuenta?',
     'login.signup': 'Registrarse',
+
+    // Shared validation
+    'validation.email': 'Por favor ingresa un correo electrónico válido.',
 
     // Auth callback (after clicking the email link)
     'callback.verifying': 'Verificando…',
@@ -584,10 +590,10 @@ const translations = {
     'reset.title': 'Nueva contraseña',
     'reset.subtitle': 'Ingresa tu nueva contraseña abajo.',
     'reset.error.fields': 'Por favor completa ambos campos',
-    'reset.error.length': 'La contraseña debe tener al menos 6 caracteres',
+    'reset.error.length': 'La contraseña debe tener al menos 8 caracteres',
     'reset.error.match': 'Las contraseñas no coinciden',
     'reset.error.failed': 'No se pudo restablecer la contraseña. Intenta de nuevo.',
-    'reset.password': 'Nueva contraseña (mín. 6 caracteres)',
+    'reset.password': 'Nueva contraseña (mín. 8 caracteres)',
     'reset.confirm': 'Confirma la nueva contraseña',
     'reset.updating': 'Actualizando…',
     'reset.submit': 'Restablecer contraseña',

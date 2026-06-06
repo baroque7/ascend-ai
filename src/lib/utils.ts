@@ -2,6 +2,12 @@ export function normalizeHandle(input: string): string {
   return input.replace('@', '').trim().toLowerCase()
 }
 
+// Basic email format check (client-side, for friendly feedback).
+// Supabase still validates server-side — this is just for instant UX.
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+}
+
 const LANGUAGE_KEY = 'gs_language'
 
 // Read the visitor's chosen UI language (set on the landing page toggle).

@@ -64,11 +64,15 @@ export async function POST(request: NextRequest) {
     if (grant) {
       // Prefer the userId we stamped at checkout; also store the Creem customer id
       // so later cancel/expire events can be matched even without metadata.
+      // upsert (not update) because the users row may not exist yet — the signup
+      // trigger only creates a profiles row, and the users row is otherwise created
+      // during onboarding, which happens AFTER payment.
       if (userId) {
-        await admin.from('users').update({
+        await admin.from('users').upsert({
+          id: userId,
           is_subscribed: true,
           creem_customer_id: customerId ?? null,
-        }).eq('id', userId)
+        }, { onConflict: 'id' })
       } else if (customerId) {
         await admin.from('users').update({ is_subscribed: true }).eq('creem_customer_id', customerId)
       }
