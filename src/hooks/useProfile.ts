@@ -2,7 +2,10 @@
 import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 
-const USER_TABLE_FIELDS = ['instagram_username', 'language', 'is_subscribed', 'is_promo', 'last_scraped_at']
+// Columns the browser is allowed to write on the `users` table. Deliberately
+// EXCLUDES is_subscribed / is_promo / creem_customer_id — those are access flags
+// only the server (payment webhook / promo route, via service_role) may set.
+const USER_TABLE_FIELDS = ['instagram_username', 'language', 'last_scraped_at']
 
 export interface UserProfile {
   id: string

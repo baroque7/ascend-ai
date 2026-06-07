@@ -29,7 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [subscribed, setSubscribed] = useState(false)
-  const [subLoading, setSubLoading] = useState(true)
+  // Tracks which user id we've actually fetched subscription for, so we never
+  // report "loaded" with a stale/unfetched subscription value.
+  const [subCheckedFor, setSubCheckedFor] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -46,12 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Refresh subscription status from the DB whenever the user changes.
   useEffect(() => {
     let active = true
-    if (!user) { setSubscribed(false); setSubLoading(false); return }
-    setSubLoading(true)
+    if (!user) { setSubscribed(false); return }
     fetchSubscribed(user.id).then((sub) => {
       if (!active) return
       setSubscribed(sub)
-      setSubLoading(false)
+      setSubCheckedFor(user.id)
     })
     return () => { active = false }
   }, [user?.id])
@@ -78,9 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/login'
   }
 
-  // Stay "loading" until BOTH the session and the subscription check resolve,
-  // so the dashboard gate doesn't briefly redirect a paid user to /payment.
-  const loading = authLoading || subLoading
+  // Stay "loading" until the session resolves AND (if there's a user) we've
+  // actually fetched THAT user's subscription — so the dashboard gate never
+  // briefly sees a stale `false` and wrongly redirects a paid user to /payment.
+  const loading = authLoading || (!!user && subCheckedFor !== user.id)
   const isSubscribed = subscribed
 
   return (
