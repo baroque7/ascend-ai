@@ -12,12 +12,12 @@ export default function Privacy() {
 
       <div style={{ color: '#888', fontSize: 15, lineHeight: 1.8 }}>
         {[
-          ['1. What We Collect', 'We collect: (a) your email address and name at signup, (b) your Instagram username when you request an analysis, (c) usage data such as pages visited and features used, and (d) payment information processed securely by Polar (we never store card numbers).'],
+          ['1. What We Collect', 'We collect: (a) your email address and name at signup, (b) your Instagram username when you request an analysis, (c) usage data such as pages visited and features used, and (d) payment information processed securely by Creem (we never store card numbers).'],
           ['2. How We Use Your Data', 'Your data is used to: provide and improve the GramScaling service, generate AI-powered content strategies, send you important account emails, and prevent fraud and abuse. We do not sell your personal data to third parties.'],
           ['3. AI Processing', 'When you request an analysis, your Instagram username and optional niche description are sent to Google\'s Gemini AI API. No other personal data is sent. Google\'s privacy policy applies to this processing.'],
           ['4. Data Storage', 'Your account data is stored securely in Supabase (PostgreSQL) with encryption at rest. We retain your data as long as your account is active or as required by law.'],
           ['5. Cookies', 'We use session cookies for authentication only. We do not use tracking or advertising cookies. You can disable cookies in your browser, but this will prevent login from working.'],
-          ['6. Third-Party Services', 'We use: Supabase (database), Polar (payments), Google Gemini (AI analysis), and Vercel (hosting). Each operates under their own privacy policy.'],
+          ['6. Third-Party Services', 'We use: Supabase (database), Creem (payments), Google Gemini (AI analysis), and Vercel (hosting). Each operates under their own privacy policy.'],
           ['7. Your Rights', 'You have the right to: access your personal data, correct inaccurate data, delete your account and all associated data, and export your data. To exercise these rights, email baroqueincoporated@gmail.com.'],
           ['8. Data Deletion', 'To delete your account and all data, email us or cancel your subscription and request deletion. We will process deletion within 30 days.'],
           ['9. Children\'s Privacy', 'GramScaling is not directed at children under 13. We do not knowingly collect data from children.'],
