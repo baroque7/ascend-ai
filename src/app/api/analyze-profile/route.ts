@@ -1,4 +1,4 @@
-export const maxDuration = 60
+export const maxDuration = 150
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
