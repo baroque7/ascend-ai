@@ -181,7 +181,7 @@ export default function TodayPage() {
               <button onClick={() => setExpanded(isOpen ? null : i)}
                 style={{ width: '100%', border: 'none', background: 'none', padding: '18px 18px 14px', cursor: 'pointer', textAlign: 'left' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <span style={{ background: 'rgba(255,215,0,0.12)', border: '1px solid rgba(255,215,0,0.2)', borderRadius: 50, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFD700', fontSize: 11, fontWeight: 900, flexShrink: 0 }}>{i + 1}</span>
                       <p style={{ color: '#FFD700', fontSize: 15, fontWeight: 800, margin: 0, lineHeight: 1.3 }}>{idea.title}</p>

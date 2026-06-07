@@ -37,6 +37,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  /* Safety net: no page may ever scroll sideways / clip content on mobile,
+     even if an element (e.g. AI-generated text) tries to push wider than the screen. */
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* Scrollbar */

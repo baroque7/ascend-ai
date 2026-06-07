@@ -159,8 +159,8 @@ export default function StrategyPage() {
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
 
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
-        <div>
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 28 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 900, margin: '0 0 4px', letterSpacing: '-0.5px' }}>{t('strategy.title')}</h1>
           <p style={{ color: '#333', fontSize: 13, margin: 0 }}>
             {profile?.instagram_username ? `@${profile.instagram_username}` : ''}{profile?.niche ? ` · ${profile.niche}` : ''}
@@ -169,7 +169,7 @@ export default function StrategyPage() {
         </div>
         {data && !generating && (
           <motion.button onClick={() => loadStrategy(true)} whileTap={{ scale: 0.9 }}
-            style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 12px', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            style={{ background: 'rgba(255,215,0,0.06)', border: '1px solid rgba(255,215,0,0.15)', borderRadius: 10, padding: '8px 12px', color: '#FFD700', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
             {t('strategy.refresh')}
           </motion.button>
         )}
