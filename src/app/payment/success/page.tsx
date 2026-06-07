@@ -1,32 +1,39 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
 import { motion } from 'framer-motion'
 import { Suspense } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 function SuccessContent() {
   const [status, setStatus] = useState<'loading' | 'done'>('loading')
-  const searchParams = useSearchParams()
+  const { user, supabase } = useAuth()
   const { t } = useTranslation()
 
   useEffect(() => {
-    async function activate() {
-      // Mark user as subscribed in their metadata
-      await supabase.auth.updateUser({
-        data: { subscription_status: 'active' },
-      })
+    let cancelled = false
+    async function waitForSubscription() {
+      // The Creem webhook sets is_subscribed in the DB (the source of truth).
+      // It usually lands in 1-2s — poll for it so we don't redirect the paid user
+      // before it arrives. We never set the status here ourselves (that would be forgeable).
+      for (let i = 0; i < 8 && !cancelled; i++) {
+        if (user) {
+          const { data } = await supabase
+            .from('users')
+            .select('is_subscribed')
+            .eq('id', user.id)
+            .single()
+          if (data?.is_subscribed) break
+        }
+        await new Promise((r) => setTimeout(r, 1500))
+      }
+      if (cancelled) return
       setStatus('done')
-      setTimeout(() => { window.location.href = '/onboarding' }, 2000)
+      setTimeout(() => { window.location.href = '/onboarding' }, 1500)
     }
-    activate()
-  }, [searchParams])
+    waitForSubscription()
+    return () => { cancelled = true }
+  }, [user, supabase])
 
   return (
     <div style={{ background: '#000', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>

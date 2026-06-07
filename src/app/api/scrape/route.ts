@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logServerError } from '@/lib/logError'
+import { hasActiveAccess } from '@/lib/subscription'
 import { normalizeHandle } from '@/lib/utils'
 
 const HIKERAPI_KEY = process.env.HIKERAPI_KEY || process.env.HIKER_API_KEY
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
     userId = user.id
+
+    // Paid work — require an active subscription (or promo), checked server-side
+    if (!(await hasActiveAccess(userId))) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
 
     const body = await request.json()
     const { username } = body

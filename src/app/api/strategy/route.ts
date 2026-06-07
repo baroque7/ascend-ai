@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { logServerError } from '@/lib/logError'
+import { hasActiveAccess } from '@/lib/subscription'
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -127,6 +128,11 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Paid work — require an active subscription (or promo), checked server-side
+    if (!(await hasActiveAccess(user.id))) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
     }
 
     if (!GEMINI_KEY) {

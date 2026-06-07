@@ -5,10 +5,8 @@ import { useTranslation } from '@/hooks/useTranslation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const PROMO_CODE = 'MIHAWK41'
-
 export default function Payment() {
-  const { user, supabase, loading } = useAuth()
+  const { user, loading } = useAuth()
   const { t } = useTranslation()
   const [promo, setPromo] = useState('')
   const [promoError, setPromoError] = useState('')
@@ -24,28 +22,29 @@ export default function Payment() {
 
   async function handlePromo(e: React.SyntheticEvent) {
     e.preventDefault()
-    const code = promo.trim().toUpperCase()
-    if (!code) { setPromoError(t('payment.error.enter_promo')); return }
-    if (code !== PROMO_CODE) { setPromoError(t('payment.error.invalid_promo')); return }
+    if (!promo.trim()) { setPromoError(t('payment.error.enter_promo')); return }
     if (!user) { window.location.href = '/signup'; return }
 
     setPromoLoading(true)
     setPromoError('')
 
     try {
-      const { error: authErr } = await supabase.auth.updateUser({
-        data: { subscription_status: 'active', is_promo: true, promo_code: PROMO_CODE },
+      // The server validates the code and grants is_promo via the service role —
+      // the browser can no longer write subscription/promo fields directly.
+      const res = await fetch('/api/redeem-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promo }),
       })
-      if (authErr) throw authErr
-
-      await supabase.from('users').upsert(
-        { id: user.id, is_promo: true },
-        { onConflict: 'id' }
-      )
-      console.log('[payment] promo success — user:', user?.id)
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setPromoError(res.status === 400 ? t('payment.error.invalid_promo') : t('payment.error.generic'))
+        setPromoLoading(false)
+        return
+      }
       window.location.href = '/onboarding'
-    } catch (err: any) {
-      setPromoError(err.message || t('payment.error.generic'))
+    } catch {
+      setPromoError(t('payment.error.generic'))
       setPromoLoading(false)
     }
   }

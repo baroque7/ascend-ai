@@ -199,17 +199,16 @@ export default function Landing() {
           style={{ background: 'rgba(255,215,0,0.03)', border: '1px solid rgba(255,215,0,0.1)', borderRadius: 20, padding: '28px 24px', marginBottom: 48 }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
-            {[
-              { value: 69, prefix: '$', suffix: '.99', label: t('landing.stat.per_month') },
-              { value: 5, suffix: '-day', label: t('landing.stat.free_trial') },
-            ].map(({ value, prefix = '', suffix, label }) => (
-              <div key={label}>
-                <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 26, letterSpacing: '-0.5px' }}>
-                  {prefix}<CountUp end={value} />{suffix}
-                </div>
-                <div style={{ color: '#333', fontSize: 12, marginTop: 4, fontWeight: 500 }}>{label}</div>
+            <div>
+              <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 26, letterSpacing: '-0.5px' }}>
+                $<CountUp end={69} />.99
               </div>
-            ))}
+              <div style={{ color: '#333', fontSize: 12, marginTop: 4, fontWeight: 500 }}>{t('landing.stat.per_month')}</div>
+            </div>
+            <div>
+              <div style={{ color: '#FFD700', fontWeight: 900, fontSize: 26, letterSpacing: '-0.5px' }}>✓</div>
+              <div style={{ color: '#333', fontSize: 12, marginTop: 4, fontWeight: 500 }}>{t('landing.stat.cancel')}</div>
+            </div>
           </div>
         </motion.div>
 
