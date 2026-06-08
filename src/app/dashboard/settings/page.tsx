@@ -18,6 +18,8 @@ export default function SettingsPage() {
   const [scraping, setScraping] = useState(false)
   const [error, setError] = useState('')
   const [signingOut, setSigningOut] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [portalError, setPortalError] = useState('')
 
   useEffect(() => {
     if (!authLoading && profile) {
@@ -25,8 +27,10 @@ export default function SettingsPage() {
     }
   }, [authLoading, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isPromo = user?.user_metadata?.is_promo === true
-  const subStatus = user?.user_metadata?.subscription_status
+  // Read subscription state from the DB (the source the Creem webhook + promo route write).
+  // user_metadata is never set by the current flow, so reading it showed paid users as "inactive".
+  const isPromo = profile?.is_promo === true
+  const subActive = profile?.is_subscribed === true
 
   async function save() {
     setSaving(true)
@@ -111,6 +115,24 @@ export default function SettingsPage() {
     await signOut()
   }
 
+  // Opens the Creem customer portal where the user can cancel / manage billing.
+  async function openBillingPortal() {
+    setPortalLoading(true)
+    setPortalError('')
+    try {
+      const res = await fetch('/api/billing-portal', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok && json.url) {
+        window.location.href = json.url
+        return
+      }
+      setPortalError(res.status === 404 ? t('settings.billing.no_account') : t('settings.billing.error'))
+    } catch {
+      setPortalError(t('settings.billing.error'))
+    }
+    setPortalLoading(false)
+  }
+
   return (
     <div style={{ background: '#000', minHeight: '100vh', padding: '24px 20px 100px' }}>
 
@@ -132,9 +154,9 @@ export default function SettingsPage() {
             {user?.email}
           </p>
         </div>
-        <div style={{ background: isPromo ? 'rgba(255,215,0,0.1)' : subStatus === 'active' ? 'rgba(0,255,128,0.1)' : 'rgba(80,80,80,0.1)', borderRadius: 6, padding: '4px 9px', flexShrink: 0 }}>
-          <span style={{ color: isPromo ? '#FFD700' : subStatus === 'active' ? '#00ff80' : '#555', fontSize: 11, fontWeight: 700 }}>
-            {isPromo ? t('settings.status.promo') : subStatus === 'active' ? t('settings.status.pro') : t('settings.status.inactive')}
+        <div style={{ background: isPromo ? 'rgba(255,215,0,0.1)' : subActive ? 'rgba(0,255,128,0.1)' : 'rgba(80,80,80,0.1)', borderRadius: 6, padding: '4px 9px', flexShrink: 0 }}>
+          <span style={{ color: isPromo ? '#FFD700' : subActive ? '#00ff80' : '#555', fontSize: 11, fontWeight: 700 }}>
+            {isPromo ? t('settings.status.promo') : subActive ? t('settings.status.pro') : t('settings.status.inactive')}
           </span>
         </div>
       </motion.div>
@@ -189,15 +211,26 @@ export default function SettingsPage() {
           <div>
             <p style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 3px' }}>{t('settings.plan_name')}</p>
             <p style={{ color: '#444', fontSize: 12, margin: 0 }}>
-              {isPromo ? t('settings.plan.promo') : subStatus === 'active' ? t('settings.plan.active') : t('settings.plan.inactive')}
+              {isPromo ? t('settings.plan.promo') : subActive ? t('settings.plan.active') : t('settings.plan.inactive')}
             </p>
           </div>
-          <div style={{ background: isPromo || subStatus === 'active' ? 'rgba(255,215,0,0.08)' : 'rgba(80,80,80,0.08)', border: `1px solid ${isPromo || subStatus === 'active' ? 'rgba(255,215,0,0.2)' : '#222'}`, borderRadius: 8, padding: '5px 10px' }}>
-            <span style={{ color: isPromo || subStatus === 'active' ? '#FFD700' : '#444', fontSize: 12, fontWeight: 700 }}>
-              {isPromo || subStatus === 'active' ? t('settings.status.active') : t('settings.status.inactive')}
+          <div style={{ background: isPromo || subActive ? 'rgba(255,215,0,0.08)' : 'rgba(80,80,80,0.08)', border: `1px solid ${isPromo || subActive ? 'rgba(255,215,0,0.2)' : '#222'}`, borderRadius: 8, padding: '5px 10px' }}>
+            <span style={{ color: isPromo || subActive ? '#FFD700' : '#444', fontSize: 12, fontWeight: 700 }}>
+              {isPromo || subActive ? t('settings.status.active') : t('settings.status.inactive')}
             </span>
           </div>
         </div>
+
+        {/* Manage / cancel — only for real paid subscribers (promo has no Creem customer) */}
+        {subActive && (
+          <button onClick={openBillingPortal} disabled={portalLoading}
+            style={{ width: '100%', marginTop: 16, padding: '12px', background: 'transparent', border: '1px solid #222', borderRadius: 10, color: portalLoading ? '#2a2a2a' : '#888', fontSize: 13, fontWeight: 700, cursor: portalLoading ? 'default' : 'pointer' }}>
+            {portalLoading ? t('settings.billing.opening') : t('settings.billing.manage')}
+          </button>
+        )}
+        {portalError && (
+          <p style={{ color: '#ff6b6b', fontSize: 12, margin: '10px 0 0', textAlign: 'center', lineHeight: 1.5 }}>{portalError}</p>
+        )}
       </motion.div>
 
       {/* Contact support */}
