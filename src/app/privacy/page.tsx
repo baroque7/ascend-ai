@@ -18,10 +18,10 @@ export default function Privacy() {
           ['4. Data Storage', 'Your account data is stored securely in Supabase (PostgreSQL) with encryption at rest. We retain your data as long as your account is active or as required by law.'],
           ['5. Cookies', 'We use session cookies for authentication only. We do not use tracking or advertising cookies. You can disable cookies in your browser, but this will prevent login from working.'],
           ['6. Third-Party Services', 'We use: Supabase (database), Creem (payments), Google Gemini (AI analysis), and Vercel (hosting). Each operates under their own privacy policy.'],
-          ['7. Your Rights', 'You have the right to: access your personal data, correct inaccurate data, delete your account and all associated data, and export your data. To exercise these rights, email baroqueincoporated@gmail.com.'],
+          ['7. Your Rights', 'You have the right to: access your personal data, correct inaccurate data, delete your account and all associated data, and export your data. To exercise these rights, email support@gramscaling.com.'],
           ['8. Data Deletion', 'To delete your account and all data, email us or cancel your subscription and request deletion. We will process deletion within 30 days.'],
           ['9. Children\'s Privacy', 'GramScaling is not directed at children under 13. We do not knowingly collect data from children.'],
-          ['10. Contact', 'Privacy questions? Email baroqueincoporated@gmail.com'],
+          ['10. Contact', 'Privacy questions? Email support@gramscaling.com'],
         ].map(([title, text]) => (
           <div key={title} style={{ marginBottom: 28 }}>
             <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h2>

@@ -47,8 +47,8 @@ export default function About() {
         <h2 style={{ color: '#FFD700', fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('about.contact.title')}</h2>
         <p style={{ color: '#888', fontSize: 15, lineHeight: 1.7 }}>
           {t('about.contact.body')}{' '}
-          <a href="mailto:baroqueincoporated@gmail.com" style={{ color: '#FFD700', textDecoration: 'none' }}>
-            baroqueincoporated@gmail.com
+          <a href="mailto:support@gramscaling.com" style={{ color: '#FFD700', textDecoration: 'none' }}>
+            support@gramscaling.com
           </a>
         </p>
       </div>

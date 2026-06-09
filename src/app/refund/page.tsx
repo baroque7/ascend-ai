@@ -22,7 +22,7 @@ export default function Refund() {
         {[
           ['All Sales Final', 'GramScaling is a subscription service that delivers AI-generated content and analysis. Because AI resources are consumed each time the service is used, all payments are final and we do not offer refunds for subscription periods — current or past.'],
           ['Cancel Anytime', 'You can cancel your subscription at any time from your Settings page. After cancellation, your access continues until the end of the current billing period, and you will not be charged again.'],
-          ['Billing Errors', 'If you believe you were charged in error (for example, a duplicate charge), email baroqueincoporated@gmail.com with the subject line "Billing Issue" and your account email. We will investigate and correct any genuine billing errors.'],
+          ['Billing Errors', 'If you believe you were charged in error (for example, a duplicate charge), email support@gramscaling.com with the subject line "Billing Issue" and your account email. We will investigate and correct any genuine billing errors.'],
           ['Disputes', 'If you believe there is a billing problem, please contact us before filing a dispute with your bank. We are happy to resolve billing issues directly.'],
         ].map(([title, text]) => (
           <div key={title} style={{ marginBottom: 28 }}>

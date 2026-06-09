@@ -21,7 +21,7 @@ export default function Terms() {
           ['7. Account Termination', 'We reserve the right to suspend or terminate accounts that violate these terms, engage in abuse, or attempt to reverse-engineer our service.'],
           ['8. Limitation of Liability', 'GramScaling is not liable for any indirect, incidental, or consequential damages arising from use of our service. Our maximum liability is limited to the amount you paid in the last 30 days.'],
           ['9. Changes to Terms', 'We may update these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.'],
-          ['10. Contact', 'Questions about these Terms? Email baroqueincoporated@gmail.com'],
+          ['10. Contact', 'Questions about these Terms? Email support@gramscaling.com'],
         ].map(([title, text]) => (
           <div key={title} style={{ marginBottom: 28 }}>
             <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title}</h2>
