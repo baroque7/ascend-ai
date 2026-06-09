@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     await resend.emails.send({
       from: 'GramScaling <support@gramscaling.com>',
-      to: 'baroqueincoporated@gmail.com',
+      to: 'support@gramscaling.com',
       replyTo: cleanEmail,
       subject: `Contact form: ${cleanName}`,
       text: `Name: ${cleanName}\nEmail: ${cleanEmail}\n\nMessage:\n${cleanMessage}`,
