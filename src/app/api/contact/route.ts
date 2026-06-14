@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { z } from 'zod'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+// Trim + presence + length caps + email format, all enforced at the door.
+const contactSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  email: z.string().trim().min(1).max(200).regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+  message: z.string().trim().min(1).max(5000),
+})
+
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, message, website } = await request.json()
+    const body = await request.json().catch(() => null)
 
-    // Honeypot check — bots fill this, humans don't
-    if (website) {
-      return NextResponse.json({ success: true }) // silently succeed so bots don't know they were blocked
+    // Honeypot — bots fill this, humans don't. Silently succeed so bots don't learn they were blocked.
+    if (body?.website) {
+      return NextResponse.json({ success: true })
     }
 
-    const cleanName = String(name ?? '').trim()
-    const cleanEmail = String(email ?? '').trim()
-    const cleanMessage = String(message ?? '').trim()
-
-    // Presence (after trimming, so whitespace-only doesn't pass)
-    if (!cleanName || !cleanEmail || !cleanMessage) {
-      return NextResponse.json({ error: 'All fields are required.' }, { status: 400 })
+    const parsed = contactSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Please enter a valid name, email, and message.' }, { status: 400 })
     }
-
-    // Length caps — stop oversized/abusive payloads
-    if (cleanName.length > 100 || cleanEmail.length > 200 || cleanMessage.length > 5000) {
-      return NextResponse.json({ error: 'Input is too long.' }, { status: 400 })
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return NextResponse.json({ error: 'Invalid email address.' }, { status: 400 })
-    }
+    const { name: cleanName, email: cleanEmail, message: cleanMessage } = parsed.data
 
     await resend.emails.send({
       from: 'GramScaling <support@gramscaling.com>',

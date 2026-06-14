@@ -2,8 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 
 const VALID_PROMO = 'MIHAWK41'
+const promoSchema = z.object({ code: z.string().trim().min(1).max(50) })
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -30,8 +32,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const { code } = await request.json()
-    if (!code || String(code).trim().toUpperCase() !== VALID_PROMO) {
+    const parsed = promoSchema.safeParse(await request.json().catch(() => null))
+    if (!parsed.success || parsed.data.code.trim().toUpperCase() !== VALID_PROMO) {
       return NextResponse.json({ error: 'Invalid promo code' }, { status: 400 })
     }
 

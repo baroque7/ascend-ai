@@ -7,10 +7,14 @@ import { createClient } from '@supabase/supabase-js'
 import { logServerError } from '@/lib/logError'
 import { hasActiveAccess } from '@/lib/subscription'
 import { normalizeHandle } from '@/lib/utils'
+import { z } from 'zod'
 
-const HIKERAPI_KEY = process.env.HIKERAPI_KEY || process.env.HIKER_API_KEY
+const HIKERAPI_KEY = process.env.HIKERAPI_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+// Validate the request body at the door — reject anything that isn't a sane username.
+const scrapeSchema = z.object({ username: z.string().trim().min(1).max(100) })
 
 function extractHashtags(text: string): string[] {
   return (text?.match(/#\w+/g) || []).map(h => h.toLowerCase())
@@ -70,13 +74,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { username } = body
+    const parsed = scrapeSchema.safeParse(await request.json().catch(() => null))
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'A valid Instagram username is required' }, { status: 400 })
+    }
+    const { username } = parsed.data
     console.log('[scrape] username:', username, '| userId:', userId)
     console.log('[scrape] HIKERAPI_KEY present:', !!HIKERAPI_KEY)
     console.log('[scrape] SERVICE_ROLE_KEY present:', !!SERVICE_ROLE_KEY)
-
-    if (!username) return NextResponse.json({ error: 'Username required' }, { status: 400 })
 
     const handle = normalizeHandle(username)
     let scrapedData: Record<string, any> = { username: handle }
